@@ -139,11 +139,9 @@
   const boosted = (p, id) => id !== 'putter' && ptiers(p)[id] > p.tiers[id];
   function jokerEl(id, opts) {
     opts = opts || {};
-    const j = JK[id];
-    return h('div', { class: `jcard ${j.type}${opts.mini ? ' mini' : ''}`, title: `${j.name}: ${j.text}` },
-      h('div', { class: 'jname' }, j.title), h('div', { class: 'jicon' }, j.emoji),
-      opts.mini ? null : h('div', { class: 'jtext' }, j.text),
-      h('div', { class: 'jtype' }, j.type === 'ticket' ? 'one use' : 'joker'));
+    const j = JK[id], url = PixelCards.joker({ key: id, emoji: j.emoji, fallback: JICON[id], col: j.col, type: j.type, mini: !!opts.mini });
+    const sc = opts.scale || 1, w = (opts.mini ? 64 : 96) * sc, hgt = (opts.mini ? 86 : 128) * sc;
+    return h('div', { class: 'jslot', title: `${j.title}: ${j.text}${j.type === 'ticket' ? ' (one use)' : ''}` }, h('img', { src: url, width: w, height: hgt, draggable: 'false', alt: j.title }));
   }
 
   let G = null;
@@ -587,11 +585,11 @@
     const p = shopper();
     const ids = bagIds().filter((id) => (id === 'putter' || E.isTierable(E.getClub(cfg, id))) && p.tiers[id] < E.MAX_TIER);
     for (let i = ids.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ids[i], ids[j]] = [ids[j], ids[i]]; }
-    G.shop.offers = ids.slice(0, 3).map((id) => ({ id, price: cost(p, id), was: null, sold: false }));
+    G.shop.offers = ids.slice(0, 4).map((id) => ({ id, price: cost(p, id), was: null, sold: false }));
     if (G.shop.offers.length && Math.random() < 0.4) { const o = G.shop.offers[Math.floor(Math.random() * G.shop.offers.length)]; if (o.price > 1) { o.was = o.price; o.price -= 1; } }
     const pool = JOKERS.filter((j) => j.type === 'ticket' || !hasJ(p, j.id));
     for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
-    G.shop.jokers = pool.slice(0, 2).map((j) => ({ id: j.id, price: j.price, sold: false }));
+    G.shop.jokers = pool.slice(0, 6 - G.shop.offers.length).map((j) => ({ id: j.id, price: j.price, sold: false }));
   }
   function buyOffer(o) { const p = shopper(); if (o.sold || p.coins < o.price) return; p.coins -= o.price; p.tiers[o.id]++; o.sold = true; render(); }
   function slotFree(p, id) { const t = JK[id].type; return (t === 'joker' ? p.jokers : p.tickets).length < SLOTS[t]; }
@@ -687,74 +685,27 @@
     out.push(meterBox('DIRECTION · RED DIE', meterSvg(fcells, fgroups, roll ? arrowFor(fcells, roll.dir, roll.jitter[1], live) : null), 'dir'));
     return out;
   }
-  // ------------------------------------------------------------ club cards (pixel art) and the deck
-  // 16×16 pixel icons: g = grip, s = shaft, h = head, l = head light, d = head dark, w = ball, y = sand
-  const ICONS = {
-    driver: ['..............gg', '.............gg.', '............s...', '...........s....', '..........s.....', '.........s......', '........s.......', '.......s........', '..hhhhhs........', '.hlllhhhh.......', 'hllhhhhhhh......', 'hhhhhhhhhh....ww', 'dhhhhhhhhd....ww', '.ddddddd........', '................', '................'],
-    wood: ['..............gg', '.............gg.', '............s...', '...........s....', '..........s.....', '.........s......', '........s.......', '.......s........', '......s.........', '...hhhh.........', '..hllhhh........', '..hhhhhh.....ww.', '..dhhhhd.....ww.', '...dddd.........', '................', '................'],
-    iron: ['..............gg', '.............gg.', '............s...', '...........s....', '..........s.....', '.........s......', '........s.......', '.......s........', '......s.........', '....hhs.........', '...hlhh.........', '..hlhhh......ww.', '..hhhhd......ww.', '..dddd..........', '................', '................'],
-    punch: ['..............gg', '.............gg.', '............s...', '...........s....', '..........s.....', '.........s......', '........s.......', '.......s........', '......s.........', '....hhs.........', '...hlhh.........', '..hlhhh......ww.', '..hhhhd......ww.', '..dddd..........', '................', '................'],
-    wedge: ['..............gg', '.............gg.', '............s...', '...........s....', '..........s.....', '.........s......', '........s.......', '.......s........', '.....hhs........', '....hlhh........', '...hlhhh.....ww.', '...hhhhh..y..ww.', '...hhhhd.y.y....', '.yyddddyyyyyyy..', 'yyyyyyyyyyyyyyyy', '................'],
-    putter: ['.........gg.....', '.........gg.....', '.........s......', '.........s......', '.........s......', '.........s......', '.........s......', '.........s......', '.........s......', '.........s......', '...hhhhhhh......', '...hlllllh...ww.', '...ddddddd...ww.', '................', 'GGGGGGGGGG..oo..', '................'],
-  };
-  const ICOL = { driver: ['#3b5dc9', '#73b7f2', '#1f2f75'], wood: ['#a46422', '#e0a060', '#5e3412'], iron: ['#94b0c2', '#f4f4f4', '#566c86'], punch: ['#b55088', '#e8a0c8', '#6e2a52'], wedge: ['#94b0c2', '#f4f4f4', '#566c86'], putter: ['#94b0c2', '#f4f4f4', '#566c86'] };
-  // Cute 2D club illustrations: a smiling club head and a happy golf ball.
-  function iconSvg(id) {
-    const k = kindOf(id), O = '#4a3a5c';
-    const face = (cx, cy, sc) => `<circle cx="${cx - 4 * sc}" cy="${cy}" r="${1.6 * sc}" fill="${O}"/><circle cx="${cx + 4 * sc}" cy="${cy}" r="${1.6 * sc}" fill="${O}"/>` +
-      `<circle cx="${cx - 4.6 * sc}" cy="${cy - 0.6 * sc}" r="${0.5 * sc}" fill="#fff"/><circle cx="${cx + 3.4 * sc}" cy="${cy - 0.6 * sc}" r="${0.5 * sc}" fill="#fff"/>` +
-      `<ellipse cx="${cx - 7 * sc}" cy="${cy + 2.6 * sc}" rx="${1.8 * sc}" ry="${1.1 * sc}" fill="#ff8fb1" opacity=".8"/><ellipse cx="${cx + 7 * sc}" cy="${cy + 2.6 * sc}" rx="${1.8 * sc}" ry="${1.1 * sc}" fill="#ff8fb1" opacity=".8"/>` +
-      `<path d="M ${cx - 2 * sc} ${cy + 2.4 * sc} Q ${cx} ${cy + 4.4 * sc} ${cx + 2 * sc} ${cy + 2.4 * sc}" stroke="${O}" stroke-width="${1.1 * sc}" fill="none" stroke-linecap="round"/>`;
-    const ball = (cx, cy) => `<circle cx="${cx}" cy="${cy}" r="6" fill="#fff" stroke="${O}" stroke-width="1.6"/><circle cx="${cx - 2}" cy="${cy - 0.5}" r=".8" fill="${O}"/><circle cx="${cx + 2}" cy="${cy - 0.5}" r=".8" fill="${O}"/><path d="M ${cx - 1.4} ${cy + 1.6} Q ${cx} ${cy + 2.8} ${cx + 1.4} ${cy + 1.6}" stroke="${O}" stroke-width=".8" fill="none" stroke-linecap="round"/>`;
-    const shaft = (x1, y1) => `<line x1="${x1}" y1="${y1}" x2="54" y2="6" stroke="#b9c4d4" stroke-width="3.2" stroke-linecap="round"/><line x1="44" y1="15" x2="55" y2="5" stroke="#5b4a7a" stroke-width="5" stroke-linecap="round"/>`;
-    let s = '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">';
-    s += '<ellipse cx="32" cy="58" rx="24" ry="4" fill="#000" opacity=".12"/>';
-    if (k === 'driver' || k === 'wood') {
-      const big = k === 'driver', fill = big ? '#5b8def' : '#c9874f', hi = big ? '#a9c6ff' : '#f0c08f';
-      s += shaft(big ? 30 : 28, big ? 34 : 36);
-      s += `<ellipse cx="${big ? 24 : 24}" cy="${big ? 42 : 44}" rx="${big ? 18 : 14}" ry="${big ? 12 : 10}" fill="${fill}" stroke="${O}" stroke-width="2"/>`;
-      s += `<ellipse cx="${big ? 18 : 20}" cy="${big ? 36 : 39}" rx="${big ? 7 : 5}" ry="3" fill="${hi}" opacity=".9"/>` + face(24, big ? 43 : 45, big ? 1 : 0.85);
-      s += ball(52, 52);
-    } else if (k === 'iron' || k === 'wedge') {
-      const w = k === 'wedge';
-      s += shaft(32, 30);
-      if (w) s += '<ellipse cx="26" cy="56" rx="22" ry="5" fill="#ffe3a3" stroke="#e8c070" stroke-width="1.2"/>';
-      s += `<path d="M 10 ${w ? 34 : 36} Q 12 ${w ? 28 : 31} 22 ${w ? 28 : 31} L 34 ${w ? 27 : 30} Q 38 ${w ? 28 : 31} 37 ${w ? 36 : 38} L 35 50 Q 33 54 27 54 L 14 54 Q 9 53 9 47 Z" fill="#dfe6ee" stroke="${O}" stroke-width="2" stroke-linejoin="round"/>`;
-      s += `<path d="M 13 ${w ? 33 : 35} Q 16 ${w ? 31 : 33.5} 22 ${w ? 31 : 33.5}" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round"/>` + face(23, 44, 0.9);
-      s += ball(52, 52);
-    } else if (k === 'putter') {
-      s += '<ellipse cx="32" cy="55" rx="28" ry="6" fill="#8fe0a6"/>';
-      s += `<line x1="34" y1="38" x2="34" y2="4" stroke="#b9c4d4" stroke-width="3.2" stroke-linecap="round"/><line x1="34" y1="4" x2="34" y2="14" stroke="#5b4a7a" stroke-width="5" stroke-linecap="round"/>`;
-      s += `<rect x="12" y="36" width="34" height="14" rx="7" fill="#dfe6ee" stroke="${O}" stroke-width="2"/>` + face(29, 42, 0.8);
-      s += ball(54, 47);
+  // ------------------------------------------------------------ club cards (Balatro-style pixel art) and the deck
+  const inOn = (t) => (t <= 2 ? 'IN' : t > 12 ? '-' : t === 12 ? '12' : t + '+');
+  function cardURL(id, tier, opts) {
+    opts = opts || {};
+    const c = opts.cfgX || cfg, st = opts.stripTier || tier, jk = opts.jokerKey || '';
+    if (id === 'putter') {
+      return PixelCards.club({ key: `putter|${tier}|${jk}`, code: 'PT', kind: 'putter', tier, distance: 'PUTTER', boost: opts.boost,
+        putt: [`RISKY ${inOn(E.puttTarget(c, 2, 'risky', tier))}`, `SAFE ${inOn(E.puttTarget(c, 2, 'safe', tier))}`] });
     }
-    return s + '</svg>';
-  }
-
-  const inOn = (t) => (t <= 2 ? 'IN' : t > 12 ? '–' : t === 12 ? '12' : t + '+');
-  // A card shows: name, picture, tier, a distance strip (2d6 2–12: short / on target / long) and a direction strip (d6: wide / slight / straight).
-  function stripsEl(id, tier, cfgX) {
-    const cfg = cfgX || window.__baseCfg;
-    if (id === 'putter') return [h('div', { class: 'gstat' }, `RISKY ${inOn(E.puttTarget(cfg, 2, 'risky', tier))}`), h('div', { class: 'gstat' }, `SAFE ${inOn(E.puttTarget(cfg, 2, 'safe', tier))}`)];
-    const c = E.getClub(cfg, id), fan = E.fanFor(cfg, c, tier), FF = `font-family="Fredoka, sans-serif" font-weight="700"`;
-    const ZC = ['#6ea8ff', '#ffffff', '#ff7b7b'], DC = (a) => (a === 0 ? '#5fd38d' : Math.abs(a) < 15 ? '#ffd166' : '#ff9f5a');
-    // rounded number pills: dark numbers on light pills, white on coloured ones
-    const d = SUMS.map((v) => { const z = E.zoneFor(cfg, v, tier, 'fairway').idx; return `<rect x="${(v - 2) * 8 + 0.3}" y="0.5" width="7.4" height="10" rx="2.6" fill="${ZC[z]}" stroke="#4a3a5c" stroke-width=".6"/><text x="${(v - 2) * 8 + 4}" y="8.2" text-anchor="middle" font-size="${v >= 10 ? 5.6 : 6.6}" ${FF} fill="${z === 1 ? '#4a3a5c' : '#fff'}">${v}</text>`; }).join('');
-    const f = fan.map((a, i) => `<rect x="${i * 14.8 + 0.3}" y="0.5" width="14" height="10" rx="3.5" fill="${DC(a)}" stroke="#4a3a5c" stroke-width=".6"/><text x="${i * 14.8 + 7.3}" y="8.3" text-anchor="middle" font-size="7" ${FF} fill="#4a3a5c">${i + 1}</text>`).join('');
-    return [h('div', { class: 'gyd' }, c.powers ? `${c.full} yd +power` : `${c.full} yd`),
-      h('div', { class: 'gstrip', html: `<svg viewBox="0 0 89 11.2">${d}</svg>` }),
-      h('div', { class: 'gstrip', html: `<svg viewBox="0 0 89 11.2">${f}</svg>` })];
+    const club = E.getClub(c, id), fan = E.fanFor(c, club, st), outer = Math.max(...Object.values(c.fans).flat().map(Math.abs));
+    return PixelCards.club({
+      key: `${id}|${tier}|${st}|${opts.boost ? 1 : 0}|${jk}`, code: club.short.toUpperCase(), kind: club.kind, tier, boost: opts.boost,
+      distance: `${club.full} YD`, dist: SUMS.map((v) => E.zoneFor(c, v, st, 'fairway').idx),
+      dir: fan.map((a) => (a === 0 ? 'straight' : Math.abs(a) >= Math.max(outer, 7) ? 'wide' : 'slight')),
+    });
   }
   function cardEl(id, tier, opts) {
     opts = opts || {};
-    const full = id === 'putter' ? 'Putter' : E.getClub(cfg, id).name;
-    const name = full.length > 10 ? full.split(' ')[0] : full; // "Pitching Wedge" -> "Pitching"
-    return h('div', { class: `gcard t${tier}` + (opts.sel ? ' sel' : '') + (opts.off ? ' off' : ''), style: opts.style || '', title: opts.title || `${full} · ${TIERNAME[tier - 1]}`, onclick: opts.onclick },
-      opts.badge ? h('div', { class: 'gbadge' }, opts.badge) : null,
-      h('div', { class: 'gname' }, name), h('div', { class: 'gicon', html: iconSvg(id) }),
-      h('div', { class: 'gpips' }, '★'.repeat(tier) + '☆'.repeat(E.MAX_TIER - tier)),
-      opts.boost ? h('div', { class: 'gboost', title: 'Boosted by a joker' }, '★') : null,
-      stripsEl(id, opts.stripTier || tier, opts.cfgX));
+    const sc = opts.scale || 1, name = id === 'putter' ? 'Putter' : E.getClub(cfg, id).name;
+    return h('div', { class: 'bslot' + (opts.sel ? ' sel' : '') + (opts.off ? ' off' : ''), style: opts.style || '', title: opts.title || `${name} · ${TIERNAME[tier - 1]}`, onclick: opts.onclick },
+      h('img', { src: cardURL(id, tier, opts), width: 96 * sc, height: 128 * sc, draggable: 'false', alt: name }));
   }
   const bagIds = () => [...cfg.clubs.filter((c) => c.enabled !== false).map((c) => c.id), 'putter'];
   function renderDeck() {
@@ -766,9 +717,9 @@
     const cards = ids.map((id, i) => {
       const off = id === 'putter' ? !st.onGreen : st.onGreen || !E.clubAllowed(E.getClub(cfg, id), st.lie);
       const sel = !shopper && (id === 'putter' ? st.onGreen : G.ui.club === id);
-      const fan = `transform: rotate(${(i - (n - 1) / 2) * 2.5}deg) translateY(${Math.abs(i - (n - 1) / 2) * 3}px)`;
+      const fan = `transform: rotate(${(i - (n - 1) / 2) * 2}deg) translateY(${Math.abs(i - (n - 1) / 2) * 2}px)`;
       return cardEl(id, p.tiers[id], {
-        stripTier: ptiers(p)[id], cfgX: pcfg(p), boost: boosted(p, id) || (id === 'putter' && hasJ(p, 'laser')),
+        stripTier: ptiers(p)[id], cfgX: pcfg(p), jokerKey: p.jokers.slice().sort().join(','), boost: boosted(p, id) || (id === 'putter' && hasJ(p, 'laser')),
         sel: sel && !['holeEnd', 'shop', 'end'].includes(G.phase), off: !shopper && off && !['holeEnd', 'shop', 'end'].includes(G.phase), style: fan,
         onclick: myTurn && !off && id !== 'putter' ? () => pickClub(id) : null,
       });
@@ -872,9 +823,11 @@
   }
   function renderPanel() {
     renderDeck();
+    const ov = document.getElementById('shopOverlay');
+    if (G && G.phase === 'shop') { ov.replaceChildren(renderShop()); ov.classList.add('on'); } else ov.classList.remove('on');
     const kids = [];
     if (G.phase === 'holeEnd') kids.push(renderHoleEnd());
-    else if (G.phase === 'shop') kids.push(renderShop());
+    else if (G.phase === 'shop') kids.push(h('div', { class: 'card' }, h('h2', null, 'PRO SHOP'), h('div', { class: 'hint' }, 'The shop is open on the table: 4 club upgrades and 2 jokers. Jokers work every shot (3 slots), tickets once (2 slots).')));
     else if (G.phase === 'end') kids.push(renderEnd());
     else kids.push(...renderTurn());
     kids.push(scorecard());
@@ -916,28 +869,29 @@
       h('div', { class: 'hint', style: 'margin-top:8px' }, `Birdie ${cfg.progression.coins.birdieOrBetter} · par ${cfg.progression.coins.par} · bogey ${cfg.progression.coins.bogey} · worse ${cfg.progression.coins.worse} · bonus = coin tokens and jokers.`),
       h('div', { class: 'row', style: 'margin-top:12px' }, h('button', { class: 'big', onclick: goShop }, 'PRO SHOP ›')));
   }
+  function clubUpgradeText(id, t) {
+    if (id === 'putter') return `RISKY ${inOn(E.puttTarget(cfg, 2, 'risky', t))} from ring 2 · SAFE ${inOn(E.puttTarget(cfg, 2, 'safe', t))}`;
+    const [a, b] = cfg.tierStrips[t - 1], fan = cfg.fans[t], wide = fan.filter((x) => Math.abs(x) >= 15).length, str = fan.filter((x) => x === 0).length;
+    return `On target ${a + 1}-${b - 1} · ${str} straight, ${wide} wide faces`;
+  }
   function renderShop() {
-    const p = shopper();
-    const owned = [...p.jokers, ...p.tickets];
+    const p = shopper(), owned = [...p.jokers, ...p.tickets];
+    const slot = (price, was, card, name, desc, onBuy, can, label) => h('div', { class: 'sslot' },
+      h('div', { class: 'ptag' }, was ? h('s', null, `$${was}`) : null, `$${price}`), card, h('div', { class: 'sname' }, name), h('div', { class: 'sdesc' }, desc),
+      h('button', { class: 'big', disabled: !can, onclick: onBuy }, label || 'BUY'));
+    const sold = () => h('div', { class: 'sslot' }, h('div', { class: 'ptag', style: 'visibility:hidden' }, '$0'), h('div', { class: 'soldcard' }, 'SOLD'));
+    const clubSlots = G.shop.offers.map((o) => o.sold ? sold() : slot(o.price, o.was, cardEl(o.id, p.tiers[o.id] + 1, { scale: 2 }),
+      `${o.id === 'putter' ? 'PUTTER' : E.getClub(cfg, o.id).name.toUpperCase()} → ${TIERNAME[p.tiers[o.id]]}`, clubUpgradeText(o.id, p.tiers[o.id] + 1), () => buyOffer(o), p.coins >= o.price));
+    const jokerSlots = G.shop.jokers.map((o) => o.sold ? sold() : slot(o.price, null, jokerEl(o.id, { scale: 2 }),
+      JK[o.id].name, JK[o.id].text, () => buyJoker(o), p.coins >= o.price && slotFree(p, o.id), slotFree(p, o.id) ? 'BUY' : 'FULL'));
     return h('div', null,
-      h('div', { class: 'card' },
-        h('div', { class: 'player' }, h('span', { class: 'dot', style: `background:${p.color}` }), h('div', { class: 'pname' }, `${p.name}'S SHOP`), h('div', { class: 'pname coin', style: 'margin-left:auto' }, `$${p.coins}`)),
-        h('h2', { style: 'margin-top:12px' }, 'CLUB UPGRADES'),
-        h('div', { class: 'offers' }, G.shop.offers.length ? G.shop.offers.map((o) => h('div', { class: 'offer' },
-          o.sold ? h('div', { class: 'gcard off t1', style: 'filter:grayscale(1) brightness(.5)' }, h('div', { class: 'sold', style: 'margin-top:50px' }, 'SOLD')) : cardEl(o.id, p.tiers[o.id] + 1, { badge: o.was ? 'SALE' : `T${p.tiers[o.id] + 1}` }),
-          o.sold ? h('div', { class: 'price' }, ' ') : h('div', { class: 'price' }, o.was ? h('s', null, `$${o.was}`) : null, `$${o.price}`),
-          o.sold ? null : h('button', { class: 'big', disabled: p.coins < o.price, onclick: () => buyOffer(o) }, 'BUY'))) : h('div', { class: 'hint' }, 'Your bag is maxed out!')),
-        h('h2', null, 'JOKERS & TICKETS'),
-        h('div', { class: 'offers' }, G.shop.jokers.map((o) => h('div', { class: 'offer' },
-          o.sold ? h('div', { class: 'jcard sold' }, h('div', { class: 'sold', style: 'margin-top:60px' }, 'SOLD')) : jokerEl(o.id),
-          o.sold ? h('div', { class: 'price' }, ' ') : h('div', { class: 'price' }, `$${o.price}`),
-          o.sold ? null : h('button', { class: 'big', disabled: p.coins < o.price || !slotFree(p, o.id), title: slotFree(p, o.id) ? '' : 'No free slot: sell one first', onclick: () => buyJoker(o) }, slotFree(p, o.id) ? 'BUY' : 'FULL')))),
-        owned.length ? [h('h2', null, `YOUR JOKERS (${p.jokers.length}/${SLOTS.joker}) · TICKETS (${p.tickets.length}/${SLOTS.ticket})`),
-          h('div', { class: 'row', style: 'justify-content:center;gap:14px' }, owned.map((id) => h('div', { class: 'offer', style: 'gap:8px' }, jokerEl(id, { mini: true }), h('button', { onclick: () => sellJoker(p, id) }, `SELL $${Math.floor(JK[id].price / 2)}`))))] : null,
-        h('div', { class: 'row', style: 'justify-content:center;margin-top:10px' },
-          h('button', { disabled: p.coins < 1, onclick: reroll }, 'REROLL $1'),
-          h('button', { class: 'big', onclick: leaveShop }, G.shop.idx + 1 < G.shop.order.length ? 'NEXT PLAYER ›' : G.hi + 1 >= G.holes.length ? 'RESULTS ›' : `TEE OFF HOLE ${G.hi + 2} ›`)),
-        h('div', { class: 'hint', style: 'margin-top:8px;text-align:center' }, 'Jokers work every shot (3 slots). Tickets are used once (2 slots). Sell for half price.')));
+      h('div', { class: 'shophead' }, h('span', { class: 'dot', style: `background:${p.color}` }), `${p.name}'S PRO SHOP`, h('span', { style: 'color:#fff' }, '·'), h('span', null, `$${p.coins}`)),
+      h('div', { class: 'shopgrid' }, clubSlots, jokerSlots),
+      owned.length ? h('div', { class: 'owned' }, h('div', { class: 'sname', style: 'align-self:center;margin-right:6px' }, `YOUR JOKERS ${p.jokers.length}/${SLOTS.joker}`, h('br'), `TICKETS ${p.tickets.length}/${SLOTS.ticket}`),
+        owned.map((id) => h('div', { class: 'sslot' }, jokerEl(id, { mini: true }), h('button', { onclick: () => sellJoker(p, id) }, `SELL $${Math.floor(JK[id].price / 2)}`)))) : null,
+      h('div', { class: 'shopbar' },
+        h('button', { class: 'big', style: 'background:#e43b44;color:#fff', disabled: p.coins < 1, onclick: reroll }, 'REROLL $1'),
+        h('button', { class: 'big', onclick: leaveShop }, G.shop.idx + 1 < G.shop.order.length ? 'NEXT PLAYER ›' : G.hi + 1 >= G.holes.length ? 'RESULTS ›' : `TEE OFF HOLE ${G.hi + 2} ›`)));
   }
   function renderEnd() {
     const pars = G.prepped.map((hp) => E.parOf(hp, cfg)), totPar = pars.reduce((a, b) => a + b, 0);

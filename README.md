@@ -6,8 +6,17 @@ A web app for designing, playing, simulating and **optimizing** a tabletop golf 
 - **Look:** the course is drawn at low resolution and scaled up with hard pixel edges, with pixel fonts, square pixel balls and dice.
 - **Your bag** is a hand of pixel-art club cards at the bottom of the screen, Balatro-style. Each card shows its tier's frame colour (Bronze → Diamond), distance and accuracy. Tap a card to pick that club; cards you can't use from your lie go dark.
 - **Gamble meters:** next to the tumbling dice, each roll has a pixel number line. Every outcome is as wide as its chance, so 7 is wide and 2 or 12 are slivers, coloured short / middle / long. Direction uses the six faces with their angles, and putting shows the IN numbers against the misses. Once the dice land, a gold arrow points at the result.
-- **Club cards:** the tier shows as the card's background (Bronze, Silver, Gold, Emerald or Diamond pixel stripes), with no border and no label. The distance strip shows the 2d6 totals 2–12 and the direction strip the faces 1–6, numbered inside each coloured box. A ★ means a joker is boosting that club.
-- **Pro shop (Balatro-style):** after each hole, every human player gets 3 club upgrade cards (sometimes one on SALE) and 2 **jokers or tickets**. They can REROLL for $1, and sell jokers back for half price. CPU players shop on their own.
+- **Club cards (Balatro-style):** clean, higher-resolution pixel art (drawn pixel by pixel at 96×128 by `prototype/cards.js`, shown at whole-number scales).
+  - **Face:** an off-white card face tinted by tier; Diamond is polychrome.
+  - **Corners:** a playing-card corner index with the club code and a "suit" for its type: ♠ Driver, ♣ woods, ♦ irons, ♥ wedges, a flag for the Putter.
+  - **Middle:** a shaded club sprite, then the distance and tier stars.
+  - **Strips:** the 2d6 strip (2–12) and the direction strip (1–6), numbered.
+  - **★ in the corner:** a joker is boosting that club.
+- **Pro shop (Balatro-style):** after each hole the shop opens big **on the table**, with **6 cards**: 4 club upgrades (sometimes one on SALE) and 2 **jokers or tickets**.
+  - **Each card** has a price tag on top, a short description under it, and a BUY button.
+  - **Reroll** for $1, and sell jokers back for half price.
+  - **Joker art** is pixel art made from emoji.
+  - **CPU players** shop on their own.
 - **Jokers** (passive, 3 slots) and **tickets** (one use, 2 slots), shown next to your hand. See 2.9.
 - **Camera:** it follows the ball. It frames your ball, the flag and your shot's reach, so it tightens as you get closer, and it zooms onto the green for putts.
 - **Long shots:** pick a club (tap its card or its mark on the bag ruler; the Driver also has 25–100% power marks), tap the board to aim, then roll. The dice tumble, the rolled fan line lights up, and the ball flies there. (`clubs-v2` branch; `main` still uses the v1 power ruler.)

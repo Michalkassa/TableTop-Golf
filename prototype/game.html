@@ -140,6 +140,31 @@
   .gboost { position: absolute; top: 5px; right: 7px; font: 13px "Fredoka", sans-serif; color: #ff5c8a; text-shadow: 0 1px 0 #fff; }
   .jchoice { margin-top: 10px; }
   .jbtn { background: #5d3c9e !important; color: #fff !important; }
+  /* Balatro-style pixel cards (images drawn by cards.js) */
+  .bslot { flex: none; margin: 0 -20px; position: relative; transition: transform .12s ease; cursor: pointer; }
+  .bslot img, .jslot img { display: block; image-rendering: pixelated; image-rendering: crisp-edges; filter: drop-shadow(0 3px 0 rgba(0, 0, 0, .5)); }
+  .bslot:hover:not(.off) { transform: translateY(-14px) !important; z-index: 5; }
+  .bslot.sel { transform: translateY(-26px) !important; z-index: 6; }
+  .bslot.sel img { filter: drop-shadow(2px 0 0 #ffcd75) drop-shadow(-2px 0 0 #ffcd75) drop-shadow(0 2px 0 #ffcd75) drop-shadow(0 -2px 0 #ffcd75) drop-shadow(0 4px 0 rgba(0, 0, 0, .5)); }
+  .bslot.off { cursor: not-allowed; }
+  .bslot.off img { filter: grayscale(.85) brightness(.5); }
+  .jslot { flex: none; position: relative; }
+  .jslot:hover { transform: translateY(-6px); }
+  /* the shop opens on the table, Balatro-style */
+  #shopOverlay { position: absolute; inset: 0; display: none; overflow: auto; z-index: 10; padding: 18px 20px 30px;
+    background: radial-gradient(ellipse at 50% 30%, #2f6a47, #173826 70%); }
+  #shopOverlay.on { display: block; }
+  .shophead { display: flex; align-items: center; justify-content: center; gap: 14px; font: 15px var(--pix); color: var(--gold); text-shadow: 3px 3px 0 var(--line); margin-bottom: 18px; }
+  .shopgrid { display: grid; grid-template-columns: repeat(3, 214px); gap: 22px 26px; justify-content: center; }
+  .sslot { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .ptag { font: 12px var(--pix); color: var(--line); background: var(--gold); padding: 6px 12px; box-shadow: 3px 3px 0 var(--line); }
+  .ptag s { opacity: .55; margin-right: 6px; }
+  .sname { font: 10px var(--pix); color: #fff; text-shadow: 2px 2px 0 var(--line); text-align: center; }
+  .sdesc { font: 19px/1 var(--txt); color: #e8f5ec; text-align: center; max-width: 210px; min-height: 38px; }
+  .soldcard { width: 192px; height: 256px; border: 4px dashed #ffffff40; display: grid; place-items: center; font: 14px var(--pix); color: #ffffff60; }
+  .shopbar { display: flex; gap: 14px; justify-content: center; align-items: center; margin-top: 22px; flex-wrap: wrap; }
+  .owned { display: flex; gap: 14px; justify-content: center; align-items: flex-end; margin-top: 20px; flex-wrap: wrap; }
+  .owned .sslot { gap: 6px; }
   /* shop */
   .offers { display: flex; gap: 18px; justify-content: center; padding: 22px 0 10px; flex-wrap: wrap; }
   .offer { display: flex; flex-direction: column; align-items: center; gap: 22px; }
@@ -160,12 +185,14 @@
   <section id="boardWrap">
     <svg id="board" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none"><image id="terrain" preserveAspectRatio="none" style="image-rendering:pixelated;image-rendering:crisp-edges"/><g id="gover"></g><g id="ganim"></g></svg>
     <div id="toast"></div>
+    <div id="shopOverlay"></div>
   </section>
   <aside id="panel"></aside>
 </main>
 <footer id="deck"></footer>
 <script src="engine.js"></script>
 <script src="components.js"></script>
+<script src="cards.js"></script>
 <script src="game.js"></script>
 </body>
 </html>
