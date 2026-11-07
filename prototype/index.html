@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tabletop Golf Lab</title>
+<style>
+  :root {
+    --bg: #f4f2ec; --panel: #ffffff; --ink: #1d2320; --muted: #66706a; --line: #dcd8cc;
+    --accent: #2f7d4a; --accent-ink: #ffffff; --warn: #b4541a; --bad: #c0262d; --chip: #eceae2;
+    --table: #3a2c20;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #151816; --panel: #1e2320; --ink: #e6e9e4; --muted: #9aa39d; --line: #333a35;
+      --accent: #4fae6e; --accent-ink: #0d1510; --warn: #e48a4f; --bad: #ff6b6b; --chip: #2a302c; --table: #0c0e0d;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--bg); color: var(--ink); font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; display: flex; flex-direction: column; }
+  header { display: flex; align-items: center; gap: 16px; padding: 8px 16px; border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
+  header h1 { font-size: 15px; margin: 0; font-weight: 650; }
+  header h1 span { color: var(--muted); font-weight: 400; margin-left: 6px; }
+  nav { display: flex; gap: 4px; }
+  nav button { border: 1px solid var(--line); background: transparent; color: var(--ink); padding: 5px 12px; border-radius: 6px; cursor: pointer; font: inherit; }
+  nav button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  main { flex: 1; display: flex; min-height: 0; }
+  #boardWrap { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--table); padding: 10px; }
+  #board { flex: 1; width: 100%; min-height: 300px; touch-action: none; user-select: none; }
+  #legend { color: #cfc8bb; font-size: 11px; padding-top: 6px; display: flex; gap: 12px; flex-wrap: wrap; }
+  #legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
+  aside { width: 460px; max-width: 100%; overflow-y: auto; padding: 12px 14px 40px; background: var(--bg); border-left: 1px solid var(--line); }
+  @media (max-width: 900px) { main { flex-direction: column; } #boardWrap { height: 60vh; flex: none; } aside { width: 100%; border-left: 0; } }
+  .sec { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
+  .sec > h3 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+  .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 4px 0; }
+  .row > label { color: var(--muted); min-width: 92px; }
+  button { font: inherit; cursor: pointer; border: 1px solid var(--line); background: var(--chip); color: var(--ink); border-radius: 6px; padding: 4px 10px; }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; padding: 6px 14px; }
+  button.small { padding: 1px 7px; font-size: 12px; }
+  input, select { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 5px; padding: 3px 5px; }
+  input.num { width: 64px; }
+  input.num.s { width: 50px; }
+  input[type=checkbox] { accent-color: var(--accent); }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  th, td { padding: 3px 5px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 500; font-size: 11px; }
+  th:first-child, td:first-child { text-align: left; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .stat { background: var(--chip); border-radius: 6px; padding: 5px 8px; }
+  .stat b { display: block; font-size: 16px; font-variant-numeric: tabular-nums; }
+  .stat span { color: var(--muted); font-size: 11px; }
+  .msg { margin-top: 8px; padding: 6px 8px; border-radius: 6px; background: var(--chip); font-weight: 600; }
+  .warn { color: var(--warn); }
+  .bad { color: var(--bad); }
+  .muted { color: var(--muted); }
+  .log { font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; max-height: 220px; overflow: auto; }
+  .log div { padding: 2px 0; border-bottom: 1px dashed var(--line); }
+  .bar { height: 10px; background: var(--accent); border-radius: 2px; display: inline-block; vertical-align: middle; }
+  .progress { height: 6px; background: var(--chip); border-radius: 3px; overflow: hidden; margin: 6px 0; }
+  .progress > div { height: 100%; background: var(--accent); width: 0; transition: width .1s; }
+  .scroll-x { overflow-x: auto; }
+  .hint { color: var(--muted); font-size: 12px; margin: 4px 0; }
+  .fanrow { display: flex; gap: 3px; align-items: center; }
+  .tag { display: inline-block; padding: 0 6px; border-radius: 10px; background: var(--chip); font-size: 11px; color: var(--muted); }
+  .die { font-size: 17px; line-height: 1; vertical-align: -2px; letter-spacing: 1px; }
+  .step { display: flex; gap: 8px; margin: 6px 0; align-items: flex-start; }
+  .stepn { flex: none; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-size: 11px; font-weight: 700; display: grid; place-items: center; margin-top: 1px; }
+  .chosen { font-weight: 700; background: #ffd84a; color: #3a2e00; border-radius: 4px; padding: 0 3px; }
+  .pips { letter-spacing: 1px; color: var(--accent); }
+  table.mx { border-collapse: separate; border-spacing: 2px; }
+  .mx th, .mx td { text-align: center; padding: 2px 4px; font-size: 11px; border: 0; }
+  .mx th.rh { text-align: left; white-space: nowrap; }
+  .mx td.cell { border-radius: 3px; cursor: crosshair; min-width: 44px; }
+  .mx td.cell:hover { outline: 2px solid #ffd84a; }
+  .logline { cursor: pointer; }
+  .logline:hover { background: var(--chip); }
+  .logline.on { background: var(--chip); border-left: 3px solid var(--accent); padding-left: 4px; }
+  .lbl.big { font-size: 9px; font-weight: 600; }
+  body.wide #boardWrap { display: none; }
+  body.wide aside { width: 100%; border-left: 0; }
+  .kit { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+  .kit figure { margin: 0; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 8px; max-width: 100%; overflow-x: auto; }
+  .kit figcaption { font-size: 12px; color: #333; margin-top: 4px; display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+  .kit svg { display: block; }
+  details > summary { cursor: pointer; color: var(--muted); }
+  /* board */
+  .grid { stroke: rgba(0,0,0,.08); stroke-width: .6; }
+  .shot { stroke: #fff; stroke-width: 1.4; fill: none; }
+  .blocked { stroke: #ff5050; stroke-width: 1.2; stroke-dasharray: 3 3; fill: none; }
+  .dropline { stroke: #9fd0ff; stroke-width: 1.2; stroke-dasharray: 1 2.5; fill: none; }
+  .fan { stroke: rgba(255,255,255,.75); stroke-width: .8; fill: none; }
+  .arc { stroke: rgba(255,255,255,.55); stroke-width: .8; fill: none; stroke-dasharray: 2 2; }
+  .aimline { stroke: #ffd84a; stroke-width: .9; stroke-dasharray: 4 3; fill: none; }
+  .sel { fill: none; stroke: #ffd84a; stroke-width: 1.2; stroke-dasharray: 4 3; }
+  .handle { fill: #ffd84a; stroke: #000; stroke-width: .6; }
+  .lbl { font: 7px system-ui, sans-serif; fill: #fff; paint-order: stroke; stroke: rgba(0,0,0,.6); stroke-width: 2px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Tabletop Golf <span>design lab · prototype</span></h1>
+  <nav id="tabs"></nav>
+  <a href="game.html" style="margin-left:auto;font-weight:700;color:var(--accent)">▶ Play the game</a>
+</header>
+<main>
+  <section id="boardWrap">
+    <svg id="board" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <pattern id="treePat" width="12" height="12" patternUnits="userSpaceOnUse">
+          <rect width="12" height="12" fill="#2c5532"/>
+          <circle cx="4" cy="4" r="3.2" fill="#3e7a44"/><circle cx="10" cy="10" r="3.2" fill="#3e7a44"/>
+        </pattern>
+      </defs>
+      <g id="layer"></g>
+    </svg>
+    <div id="legend"></div>
+  </section>
+  <aside id="panel"></aside>
+</main>
+<script src="engine.js"></script>
+<script src="components.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
