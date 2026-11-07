@@ -69,7 +69,7 @@
   // ------------------------------------------------------------ jokers
   // JOKER = passive, works every shot (3 slots). TICKET = one use, then it's gone (2 slots).
   const JOKERS = [
-    { id: 'caddie', name: 'CADDIE', type: 'joker', price: 5, col: '#ffcd75', text: 'Once per hole: flip the red die to its opposite side.' },
+    { id: 'caddie', name: 'CADDIE', type: 'joker', price: 5, col: '#ffcd75', text: 'Once per hole: reroll the red (direction) dice.' },
     { id: 'sandshark', name: 'SAND SHARK', type: 'joker', price: 4, col: '#f2d58c', text: "Bunkers don't drop your result." },
     { id: 'roughrider', name: 'ROUGH RIDER', type: 'joker', price: 4, col: '#8ce872', text: "The rough doesn't drop your result." },
     { id: 'lumberjack', name: 'LUMBERJACK', type: 'joker', price: 5, col: '#ef7d57', text: "Trees never stop your ball and don't drop your result." },
@@ -193,14 +193,13 @@
   function afterRollOptions(p, out, dice) {
     const o = [];
     if (hasTicket(p, 'mulligan')) o.push({ id: 'mulligan', label: 'MULLIGAN: reroll all dice' });
-    if (hasJ(p, 'caddie') && !p.caddieUsed && !p.st.onGreen && out.result.angle !== 0) o.push({ id: 'caddie', label: `CADDIE: red die ${dice.dir} → ${7 - dice.dir}` });
+    if (hasJ(p, 'caddie') && !p.caddieUsed && !p.st.onGreen && out.result.angle !== 0) o.push({ id: 'caddie', label: `CADDIE: reroll red dice (${dice.dir})` });
     if (o.length) o.push({ id: 'keep', label: 'PLAY IT' });
     return o;
   }
   function botAfterRoll(p, out, dice, opts, compute) {
     if (opts.some((o) => o.id === 'caddie')) {
-      const flipped = compute({ ...dice, dir: 7 - dice.dir });
-      if (Math.abs(flipped.result.angle) < Math.abs(out.result.angle) || (out.result.penalty && !flipped.result.penalty)) return 'caddie';
+      if (Math.abs(out.result.angle) >= 15 || out.result.penalty) return 'caddie'; // wide or in trouble: reroll the red dice
     }
     if (opts.some((o) => o.id === 'mulligan') && (out.result.penalty || out.result.blocked || (out.result.putt && !out.result.holed && out.result.ring <= 2))) return 'mulligan';
     return 'keep';
@@ -212,14 +211,15 @@
     G.busy = true;
     const p = P(), hole = H(), st = p.st, pc = pcfg(p), pt = ptiers(p);
     const dec = st.onGreen ? { putt: choice } : { club: G.ui.club, power: G.ui.power, aim: G.ui.aim || hole.pin };
-    let dice = { d1: d6(), d2: d6(), dir: d6() };
+    const roll4 = () => { const r1 = d6(), r2 = d6(); return { d1: d6(), d2: d6(), r1, r2, dir: r1 + r2 }; };
+    let dice = roll4();
     const compute = (dd) => E.playShot(hole, pc, st, dec, pt, dd || dice);
     let out;
     try { out = compute(); } catch (e) { G.busy = false; toast(e.message.toUpperCase()); return; }
     const showRoll = async () => {
       G.lastRoll = { sum: dice.d1 + dice.d2, dir: dice.dir, choice, onGreen: st.onGreen, ring: st.onGreen ? E.ringOf(hole, st) : 0, jitter: [0.25 + Math.random() * 0.5, 0.25 + Math.random() * 0.5] };
       G.phase = 'rolling'; G.diceRolling = true; G.lastDice = null; G.lastExplain = null; render();
-      await rollDice(st.onGreen ? [dice.d1, dice.d2] : [dice.d1, dice.d2, dice.dir], !st.onGreen);
+      await rollDice(st.onGreen ? [dice.d1, dice.d2] : [dice.d1, dice.d2, dice.r1, dice.r2], !st.onGreen);
       G.diceRolling = false; // the arrow appears only once the dice have landed
       out = compute();
       G.lastExplain = explain(out.result); renderPanel();
@@ -230,11 +230,11 @@
       if (!opts.length) break;
       const pick = p.bot ? botAfterRoll(p, out, dice, opts, compute) : await askChoice(opts);
       if (p.bot && pick !== 'keep') { G.botChoice = pick; renderPanel(); await sleep(600); G.botChoice = null; }
-      if (pick === 'mulligan') { useTicket(p, 'mulligan'); toast('MULLIGAN!', 'reroll'); dice = { d1: d6(), d2: d6(), dir: d6() }; await showRoll(); continue; }
+      if (pick === 'mulligan') { useTicket(p, 'mulligan'); toast('MULLIGAN!', 'reroll'); dice = roll4(); await showRoll(); continue; }
       if (pick === 'caddie') {
-        p.caddieUsed = true; dice = { ...dice, dir: 7 - dice.dir }; out = compute();
-        G.lastRoll.dir = dice.dir; if (G.lastDice) G.lastDice.faces[2] = dice.dir; G.lastExplain = explain(out.result);
-        toast('CADDIE!', 'red die flipped'); renderPanel(); continue;
+        p.caddieUsed = true; const r1 = d6(), r2 = d6(); dice = { ...dice, r1, r2, dir: r1 + r2 }; out = compute();
+        G.lastRoll.dir = dice.dir; if (G.lastDice) { G.lastDice.faces[2] = r1; G.lastDice.faces[3] = r2; } G.lastExplain = explain(out.result);
+        toast('CADDIE!', `red dice rerolled: ${dice.dir}`); renderPanel(); continue;
       }
       break;
     }
@@ -283,7 +283,7 @@
   function explain(r) {
     if (r.putt) return [`RING ${r.ring} · ${r.choice.toUpperCase()}: needs ${r.target <= 2 ? 'nothing' : r.target + '+'}`, `Rolled <b>${r.sum}</b> → ${r.holed ? '<b>IN!</b>' : 'miss, ball to <b>ring ' + r.destRing + '</b>'}`];
     const z = r.calc.zone;
-    return [`Distance ${r.dice.d1}+${r.dice.d2} = ${r.calc.pips} → <b>${z.label.toUpperCase()}</b>${z.drop ? ` (${r.from.lie} −${z.drop})` : ''} · ${r.distance} yd`, `Direction ${r.dice.dir} → <b>${r.angle === 0 ? 'STRAIGHT' : (r.angle > 0 ? '+' : '−') + Math.abs(r.angle) + '°'}</b> line`];
+    return [`Distance ${r.dice.d1}+${r.dice.d2} = ${r.calc.pips} → <b>${z.label.toUpperCase()}</b>${z.drop ? ` (${r.from.lie} −${z.drop})` : ''} · ${r.distance} yd`, `Direction ${r.dice.r1 != null ? r.dice.r1 + '+' + r.dice.r2 + ' = ' : ''}${r.dice.dir} → <b>${r.angle === 0 ? 'STRAIGHT' : (r.angle > 0 ? '+' : '−') + Math.abs(r.angle) + '°'}</b> line`];
   }
   function resultText(r, st) {
     if (r.holed) return [r.putt ? 'IN THE CUP!' : 'HOLE OUT!!', ''];
@@ -310,18 +310,18 @@
     return s + '</svg>';
   }
   function staticDice() {
-    const { faces, withDir } = G.lastDice, sum = faces[0] + faces[1];
-    return faces.map((fc, i) => h('div', null, h('div', { html: dieSvg(fc, withDir && i === 2) }),
-      h('div', { class: 'dielbl' }, withDir && i === 2 ? 'AIM' : i === 0 ? `${sum}` : '')));
+    const { faces, withDir } = G.lastDice, sum = faces[0] + faces[1], rs = withDir ? faces[2] + faces[3] : 0;
+    return faces.map((fc, i) => h('div', null, h('div', { html: dieSvg(fc, withDir && i >= 2) }),
+      h('div', { class: 'dielbl' }, i === 0 ? `DIST ${sum}` : withDir && i === 2 ? `AIM ${rs}` : '')));
   }
   async function rollDice(faces, withDir) {
     const tray = document.getElementById('dicebox');
     if (!tray) return;
-    const slots = faces.map((_, i) => h('div', null, h('div', { html: dieSvg(d6(), withDir && i === 2) }), h('div', { class: 'dielbl' }, withDir && i === 2 ? 'AIM' : 'DIST')));
+    const slots = faces.map((_, i) => h('div', null, h('div', { html: dieSvg(d6(), withDir && i >= 2) }), h('div', { class: 'dielbl' }, withDir && i >= 2 ? 'AIM' : 'DIST')));
     tray.replaceChildren(...slots);
     const t0 = performance.now(), dur = fast() ? 40 : 900;
     while (performance.now() - t0 < dur) {
-      slots.forEach((s, i) => { s.firstChild.innerHTML = dieSvg(d6(), withDir && i === 2); s.firstChild.firstChild.classList.add('tumble'); });
+      slots.forEach((s, i) => { s.firstChild.innerHTML = dieSvg(d6(), withDir && i >= 2); s.firstChild.firstChild.classList.add('tumble'); });
       await new Promise((r) => setTimeout(r, 80));
     }
     G.lastDice = { faces, withDir };
@@ -508,7 +508,8 @@
     for (const g of groups) {
       const a = base + (g.angle * Math.PI) / 180, ex = st.x + Math.cos(a) * dmax, ey = st.y + Math.sin(a) * dmax;
       s += `<line x1="${f2(st.x)}" y1="${f2(st.y)}" x2="${f2(ex)}" y2="${f2(ey)}" stroke="${PAL.white}" stroke-width="${f2(px)}" opacity=".85"/>`;
-      s += txt(ex + Math.cos(a) * 8 * px, ey + Math.sin(a) * 8 * px + 3 * px, g.faces.join(''), 6);
+      const fl = g.faces.length > 1 ? `${g.faces[0]}-${g.faces[g.faces.length - 1]}` : `${g.faces[0]}`;
+      s += txt(ex + Math.cos(a) * 9 * px, ey + Math.sin(a) * 9 * px + 3 * px, fl, 5);
     }
     const a0 = base + (groups[0].angle * Math.PI) / 180, a1 = base + (groups[groups.length - 1].angle * Math.PI) / 180;
     zs.forEach((d, i) => {
@@ -680,9 +681,9 @@
     out.push(meterBox(`DISTANCE · ${club.name.toUpperCase()}${club.powers ? ' ' + Math.round(G.ui.power * 100) + '%' : ''}${drop ? ` · ${st.lie.toUpperCase()} −${drop} STEP${drop > 1 ? 'S' : ''}` : ''}`, meterSvg(dcells, dgroups, roll ? arrowFor(dcells, roll.sum, roll.jitter[0], live) : null), 'dist'));
     const fan = E.fanFor(cfg, club, tier), outer = Math.max(...fan.map(Math.abs)) || 1;
     const acol = (a) => dirCol(a, 15);
-    const fcells = layout([1, 2, 3, 4, 5, 6].map((v) => ({ v, p: 1 / 6, fill: acol(fan[v - 1]), ink: PAL.ink, label: v })));
-    const fgroups = zoneGroups(fcells, (c) => { const a = fan[c.v - 1]; return { k: a, text: a === 0 ? 'STRAIGHT' : `${a > 0 ? '+' : '−'}${Math.abs(a)}°`, color: acol(a) }; });
-    out.push(meterBox('DIRECTION · RED DIE', meterSvg(fcells, fgroups, roll ? arrowFor(fcells, roll.dir, roll.jitter[1], live) : null), 'dir'));
+    const fcells = layout(SUMS.map((v) => ({ v, p: pSum(v), fill: acol(fan[v - 2]), ink: PAL.ink, label: v })));
+    const fgroups = zoneGroups(fcells, (c) => { const a = fan[c.v - 2]; return { k: a, text: a === 0 ? 'STRAIGHT' : `${a > 0 ? '+' : '−'}${Math.abs(a)}°`, color: acol(a) }; });
+    out.push(meterBox('DIRECTION · RED DICE', meterSvg(fcells, fgroups, roll ? arrowFor(fcells, roll.dir, roll.jitter[1], live) : null), 'dir'));
     return out;
   }
   // ------------------------------------------------------------ club cards (Balatro-style pixel art) and the deck
@@ -871,8 +872,8 @@
   }
   function clubUpgradeText(id, t) {
     if (id === 'putter') return `RISKY ${inOn(E.puttTarget(cfg, 2, 'risky', t))} from ring 2 · SAFE ${inOn(E.puttTarget(cfg, 2, 'safe', t))}`;
-    const [a, b] = cfg.tierStrips[t - 1], fan = cfg.fans[t], wide = fan.filter((x) => Math.abs(x) >= 15).length, str = fan.filter((x) => x === 0).length;
-    return `On target ${a + 1}-${b - 1} · ${str} straight, ${wide} wide faces`;
+    const [a, b] = cfg.tierStrips[t - 1], g = E.faceGroups(cfg.fans[t]).find((x) => x.angle === 0), wide = cfg.fans[t].some((x) => Math.abs(x) >= 15);
+    return `On target ${a + 1}-${b - 1} · straight ${g.faces[0]}-${g.faces[g.faces.length - 1]}${wide ? '' : ' · no wide'}`;
   }
   function renderShop() {
     const p = shopper(), owned = [...p.jokers, ...p.tickets];
@@ -913,7 +914,7 @@
       h('div', { class: 'row', style: 'margin-top:12px' }, h('button', { class: 'big', onclick: newGame }, 'TEE OFF!'))),
       h('div', { class: 'card' }, h('h2', null, 'HOW TO PLAY'),
         h('div', null, '1. Pick a club, tap a power mark on its ruler, tap the course to aim.'),
-        h('div', null, '2. ROLL: white dice pick the distance tick (short / middle / long), the red die picks the fan line.'),
+        h('div', null, '2. ROLL: two white dice pick the distance (short / on target / long), two red dice pick the direction (straight / slight / wide).'),
         h('div', null, '3. On the green, tap SAFE or RISKY on your putter card.'),
         h('div', null, '4. Stop on a gold coin to grab it. Spend coins in the pro shop: club upgrades, JOKERS (always on) and one-use TICKETS.'),
         h('div', null, '5. Furthest from the cup plays next. Lowest total wins.')));

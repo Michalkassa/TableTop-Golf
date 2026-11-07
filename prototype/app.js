@@ -92,7 +92,7 @@
     tab: LS.get('ttg.tab', 'play'),
     sel: null, snap: true,
     hover: null,
-    ui: { explain: null, explainBoard: true, club: 'driver', power: 1, diceMode: 'random', manual: { d1: 3, d2: 4, dir: 3 }, botProfile: 'expert', showCloud: true, mirror: true, freeUpgrades: false, genPar: 0, genSeed: 1 },
+    ui: { explain: null, explainBoard: true, club: 'driver', power: 1, diceMode: 'random', manual: { d1: 3, d2: 4, dir: 7 }, botProfile: 'expert', showCloud: true, mirror: true, freeUpgrades: false, genPar: 0, genSeed: 1 },
     aim: null, suggestion: null, game: null,
     lib: LS.get('ttg.lib', []),
     sim: {
@@ -156,7 +156,8 @@
   function rollDice() {
     if (S.ui.diceMode === 'manual') return Object.assign({}, S.ui.manual);
     const r = Math.random;
-    return { d1: 1 + Math.floor(r() * 6), d2: 1 + Math.floor(r() * 6), dir: 1 + Math.floor(r() * 6) };
+    const r1 = 1 + Math.floor(r() * 6), r2 = 1 + Math.floor(r() * 6);
+    return { d1: 1 + Math.floor(r() * 6), d2: 1 + Math.floor(r() * 6), r1, r2, dir: r1 + r2 }; // direction = red 2d6
   }
   function hit(dice, puttChoice) {
     const g = S.game, H = getH();
@@ -496,8 +497,9 @@
       kids.push(row('Dice',
         h('button', { class: S.ui.diceMode === 'random' ? 'on' : '', onclick: () => { S.ui.diceMode = 'random'; render(); } }, 'Random'),
         h('button', { class: S.ui.diceMode === 'manual' ? 'on' : '', onclick: () => { S.ui.diceMode = 'manual'; render(); } }, 'Set manually'),
-        S.ui.diceMode === 'manual' ? ['d1', 'd2', 'dir'].map((k) => h('span', null, k + ' ',
-          h('select', { onchange: (e) => { S.ui.manual[k] = +e.target.value; }, value: String(S.ui.manual[k]) }, [1, 2, 3, 4, 5, 6].map((v) => h('option', { value: String(v) }, v))))) : null));
+        S.ui.diceMode === 'manual' ? ['d1', 'd2', 'dir'].map((k) => h('span', null, k === 'dir' ? 'red total ' : k + ' ',
+          h('select', { onchange: (e) => { S.ui.manual[k] = +e.target.value; }, value: String(S.ui.manual[k] || (k === 'dir' ? 7 : 3)) },
+            (k === 'dir' ? [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] : [1, 2, 3, 4, 5, 6]).map((v) => h('option', { value: String(v) }, v))))) : null));
       kids.push(h('div', { class: 'row', style: 'margin-top:8px' },
         !st.onGreen ? h('button', { class: 'primary', onclick: () => { hit(); render(); } }, 'Hit') : null,
         h('span', { class: 'muted', style: 'margin-left:6px' }, 'Bot'),
@@ -793,10 +795,10 @@
       h('div', null,
         h('div', { class: 'fanrow' }, fan.map((v, i) => numIn(v, -45, 45, 1, (nv) => {
           fan[i] = nv;
-          if (S.ui.mirror) fan[5 - i] = -nv;
+          if (S.ui.mirror) fan[fan.length - 1 - i] = -nv;
           cfgChanged();
         }, 's'))),
-        h('div', { class: 'hint' }, `${distinct} lines · faces 1–6${warn.length ? ' · ' : ''}`, warn.length ? h('span', { class: 'warn' }, warn.join(', ')) : null)),
+        h('div', { class: 'hint' }, `${distinct} lines · ${fan.length === 11 ? 'red 2d6 totals 2–12' : 'faces 1–6'}${warn.length ? ' · ' : ''}`, warn.length ? h('span', { class: 'warn' }, warn.join(', ')) : null)),
       fanSvg(fan));
   }
   function configWarnings() {
@@ -976,7 +978,7 @@
     if ((m = path.match(/^(fanOuter|fanInner)\.(\d)$/))) {
       const fan = cfg.fans[m[2]];
       const i = m[1] === 'fanInner' ? 1 : 0;
-      fan[i] = -Math.abs(v); fan[5 - i] = Math.abs(v);
+      fan[i] = -Math.abs(v); fan[fan.length - 1 - i] = Math.abs(v);
       return;
     }
     const cur = getPath(cfg, path);

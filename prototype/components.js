@@ -145,12 +145,13 @@
     }
     s += `<text x="5" y="61" font-size="2.1" fill="${ZCOL[0]}" font-weight="800">SHORT</text><text x="31.5" y="61" text-anchor="middle" font-size="2.1" fill="#555" font-weight="800">ON TARGET</text><text x="58" y="61" text-anchor="end" font-size="2.1" fill="${ZCOL[2]}" font-weight="800">LONG</text>`;
     // direction strip
-    s += `<text x="5" y="66.4" font-size="2.4" font-weight="800" fill="#333" letter-spacing="0.3">DIRECTION · RED DIE</text>`;
+    s += `<text x="5" y="66.4" font-size="2.4" font-weight="800" fill="#333" letter-spacing="0.3">DIRECTION · 2 RED DICE</text>`;
     const fan = E.fanFor(cfg, club, tier), outer = Math.max(...Object.values(cfg.fans).flat().map(Math.abs));
     fan.forEach((a, i) => {
-      const k = a === 0 ? 'straight' : Math.abs(a) >= outer ? 'wide' : 'slight', x = 4 + i * 9.2;
-      s += `<rect x="${x}" y="67.8" width="8.6" height="8.6" rx="1" fill="${DIRCOL[k]}"/>` + dieIcon(f(x + 4.3), 72.1, 6, i + 1);
+      const k = a === 0 ? 'straight' : Math.abs(a) >= outer ? 'wide' : 'slight', x = 4 + i * 5, v = i + 2;
+      s += `<rect x="${x}" y="67.8" width="4.6" height="7" rx="0.6" fill="${DIRCOL[k]}" stroke="#333" stroke-width="0.25"/><text x="${f(x + 2.3)}" y="72.5" text-anchor="middle" font-size="${v >= 10 ? 2.2 : 2.7}" font-weight="800" fill="#fff">${v}</text>`;
     });
+    s += `<text x="5" y="78.4" font-size="2.1" fill="${DIRCOL.wide}" font-weight="800">WIDE</text><text x="31.5" y="78.4" text-anchor="middle" font-size="2.1" fill="${DIRCOL.straight}" font-weight="800">STRAIGHT</text><text x="58" y="78.4" text-anchor="end" font-size="2.1" fill="${DIRCOL.wide}" font-weight="800">WIDE</text>`;
     s += `<text x="31.5" y="${Hc - 2.6}" text-anchor="middle" font-size="2.3" font-weight="800" fill="#fff" letter-spacing="0.6">${T.name.toUpperCase()}${club.powers ? ' · 4 POWER MARKS' : ''}</text>`;
     return { x: 0, y: 0, w: W, h: Hc, body: s, name: `${id}-t${tier}-card`, title: `${club.name} T${tier} card` };
   }
@@ -278,8 +279,8 @@
   function usageDiagram(cfg, opts) {
     opts = opts || {};
     const club = E.getClub(cfg, opts.club || 'i7'), tier = opts.tier || 1;
-    const fanArr = E.fanFor(cfg, club, tier), dirFace = opts.dir || 5, d1 = opts.d1 || 3, d2 = opts.d2 || 4, sum = d1 + d2;
-    const angle = fanArr[dirFace - 1], zone = E.zoneFor(cfg, sum, tier, 'fairway'), dist = E.clubDistance(cfg, club, sum, 1, 'fairway', tier);
+    const fanArr = E.fanFor(cfg, club, tier), r1 = opts.r1 || 6, r2 = opts.r2 || 4, dirFace = r1 + r2, d1 = opts.d1 || 3, d2 = opts.d2 || 4, sum = d1 + d2;
+    const angle = fanArr[dirFace - 2], zone = E.zoneFor(cfg, sum, tier, 'fairway'), dist = E.clubDistance(cfg, club, sum, 1, 'fairway', tier);
     const B = { x: 40, y: 300 }, th = -80, toR = (d) => (d * Math.PI) / 180;
     const at = (deg, r) => ({ x: B.x + Math.cos(toR(deg)) * r, y: B.y + Math.sin(toR(deg)) * r });
     const pin = at(th, dist + 22), land = at(th + angle, dist);
@@ -299,7 +300,7 @@
       ['Playing a shot', 7, 800], [`${club.name}, tier ${tier}`, 3.6, 400], ['', 3, 400],
       ['1  Aim the fan', 4.4, 800], ['   centre line where you aim', 3.6, 400],
       [`2  Roll: ${d1} + ${d2} = ${sum}`, 4.4, 800], [`   card says ${zone.label.toUpperCase()}`, 3.6, 400],
-      [`3  Red die: ${dirFace}`, 4.4, 800], [`   card says ${angle === 0 ? 'STRAIGHT' : Math.abs(angle) >= 15 ? 'WIDE' : 'SLIGHT'}`, 3.6, 400],
+      [`3  Red dice: ${r1} + ${r2} = ${dirFace}`, 4.4, 800], [`   card says ${angle === 0 ? 'STRAIGHT' : Math.abs(angle) >= 15 ? 'WIDE' : 'SLIGHT'}`, 3.6, 400],
       ['4  Lay the bag ruler', 4.4, 800], ['   on that fan line, find the', 3.6, 400], [`   ${club.short} mark${zone.idx === 1 ? '' : zone.idx === 0 ? ' − 1 notch' : ' + 1 notch'}: ball there`, 3.6, 400],
     ];
     lines.forEach(([t, fs, fw], i) => { s += `<text x="${tx}" y="${22 + i * 8}" font-size="${fs}" font-weight="${fw}" fill="#111">${t}</text>`; });

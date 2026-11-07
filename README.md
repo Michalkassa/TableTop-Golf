@@ -90,27 +90,27 @@ Non-goals for v1: online multiplayer, accounts, 3D graphics.
 
 **One shot**
 1. Pick a club card (the Driver also picks a power level).
-2. Aim the shared fan, then roll 2d6 (distance) and 1d6 (direction) together.
-3. **Distance:** look up the 2d6 total on the card's **distance strip**: short, on target or long. Then measure on the bag ruler.
-4. **Direction:** look up the d6 on the card's **direction strip**: straight, slight or wide. Then use that line on the shared fan.
+2. Aim the shared fan, then roll **four dice** together: two white (distance) and two red (direction).
+3. **Distance:** look up the white 2d6 total on the card's **distance strip**: short, on target or long. Then measure on the bag ruler.
+4. **Direction:** look up the red 2d6 total on the card's **direction strip**: straight, slight or wide. Then use that line on the shared fan.
 
 **What a card shows (and nothing else)**
 - The club's name and pixel-art picture.
 - Its tier: the frame colour (Bronze → Diamond) and pips.
 - A **distance strip**: 11 small boxes for the 2d6 totals 2–12, coloured **short / on target / long**.
-- A **direction strip**: the 6 die faces, coloured **straight / slight / wide**.
+- A **direction strip**: the red 2d6 totals 2–12, coloured **straight / slight / wide**. Both strips read the same way, and both follow the 2d6 bell curve.
 
 **The shared fan** has just 5 lines: wide left, slight left, straight, slight right, wide right (proposed ±15° and ±6°). It's the same for every club; only the cards change which die faces go where.
 
 **Upgrades improve the odds** (proposed). Each upgrade swaps in the next tier's card for that club, and alternates between better distance and better direction:
 
-| Tier | Distance strip (2d6): short / on target / long | Direction strip (d6): wide / slight / straight |
+| Tier | Distance strip (white 2d6): short / on target / long | Direction strip (red 2d6): wide / slight / straight |
 |---|---|---|
-| 1 Bronze | 2–4 / **5–9** / 10–12 (on target 67%) | 1, 6 wide · 2, 5 slight · 3, 4 straight |
+| 1 Bronze | 2–4 / **5–9** / 10–12 (on target 67%) | 2, 12 wide · 3–4, 10–11 slight · **5–9 straight** (67%) |
 | 2 Silver | 2–3 / **4–10** / 11–12 (83%) | same as tier 1 |
-| 3 Gold | same as tier 2 | no wide: 1, 2, 5, 6 slight · 3, 4 straight |
+| 3 Gold | same as tier 2 | no wide: 2–3, 11–12 slight · **4–10 straight** (83%) |
 | 4 Emerald | 2 / **3–11** / 12 (94%) | same as tier 3 |
-| 5 Diamond | same as tier 4 | 1, 6 slight · 2–5 straight |
+| 5 Diamond | same as tier 4 | 2, 12 slight · **3–11 straight** (94%) |
 
 - Each tier makes good results **more likely**; the club never hits further.
 - The **shop** sells next-tier cards (Balatro-style, as in the game prototype).
@@ -285,7 +285,7 @@ Special cards bought in the pro shop. **Jokers** are passive and work every shot
 
 | Card | Type | Price | Effect |
 |---|---|---|---|
-| Caddie | joker | 5 | Once per hole: flip the red die to its opposite side (1↔6, 2↔5, 3↔4) |
+| Caddie | joker | 5 | Once per hole: reroll the red (direction) dice |
 | Sand Shark | joker | 4 | Bunkers don't drop your result |
 | Rough Rider | joker | 4 | The rough doesn't drop your result |
 | Lumberjack | joker | 5 | Trees never stop your ball and don't drop your result |

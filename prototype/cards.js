@@ -194,11 +194,12 @@
         if (v >= 10) { px.rect(x + 2, 85, 1, 5, ink); text(px, v % 10, x + 4, 85, ink, F3); } // narrow "1" so 10-12 fit
         else text(px, v, x + 3, 85, ink, F3);
       });
-      // direction strip: die faces 1-6
+      // direction strip: red 2d6 totals 2-12
       o.dir.forEach((k, i) => {
-        const x = 5 + i * 14;
-        px.rect(x, 95, 14, 11, INK); px.rect(x + 1, 96, 12, 9, DIR[k]);
-        text(px, i + 1, x + 6, 98, INK, F3);
+        const x = 4 + i * 8, v = i + 2;
+        px.rect(x, 95, 9, 11, INK); px.rect(x + 1, 96, 7, 9, DIR[k]);
+        if (v >= 10) { px.rect(x + 2, 98, 1, 5, INK); text(px, v % 10, x + 4, 98, INK, F3); }
+        else text(px, v, x + 3, 98, INK, F3);
       });
     }
     const url = px.url();

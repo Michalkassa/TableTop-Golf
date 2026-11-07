@@ -21,23 +21,23 @@ console.log('rules');
 
   const s0 = E.startState(H);
   let threw = false;
-  try { E.playShot(H, cfg, { ...s0, lie: 'fairway' }, { club: 'driver', power: 1, aim: H.pin }, tiers, { d1: 3, d2: 4, dir: 3 }); } catch (e) { threw = true; }
+  try { E.playShot(H, cfg, { ...s0, lie: 'fairway' }, { club: 'driver', power: 1, aim: H.pin }, tiers, { d1: 3, d2: 4, dir: 7 }); } catch (e) { threw = true; }
   ok(threw, 'driver only from tee');
   threw = false;
-  try { E.playShot(H, cfg, { ...s0, lie: 'bunker' }, { club: 'w3', power: 1, aim: H.pin }, tiers, { d1: 3, d2: 4, dir: 3 }); } catch (e) { threw = true; }
+  try { E.playShot(H, cfg, { ...s0, lie: 'bunker' }, { club: 'w3', power: 1, aim: H.pin }, tiers, { d1: 3, d2: 4, dir: 7 }); } catch (e) { threw = true; }
   ok(threw, 'no wood from bunker');
 
   // driver 7 pips straight: 250 yd -> y=190 (fairway, past bunker centre 250? 440-250=190 -> fairway)
-  const a = E.playShot(H, cfg, s0, { club: 'driver', power: 1, aim: H.pin }, tiers, { d1: 3, d2: 4, dir: 3 });
+  const a = E.playShot(H, cfg, s0, { club: 'driver', power: 1, aim: H.pin }, tiers, { d1: 3, d2: 4, dir: 7 });
   ok(Math.abs(a.state.y - 190) < 1e-6 && a.state.strokes === 1 && a.state.lie === 'fairway', 'driver 250 yd straight lands on fairway');
 
   // OB: aim sideways
-  const b = E.playShot(H, cfg, s0, { club: 'driver', power: 1, aim: { x: 500, y: 440 } }, tiers, { d1: 6, d2: 6, dir: 3 });
+  const b = E.playShot(H, cfg, s0, { club: 'driver', power: 1, aim: { x: 500, y: 440 } }, tiers, { d1: 6, d2: 6, dir: 7 });
   ok(b.result.landLie === 'ob' && b.state.x === 170 && b.state.y === 440 && b.state.strokes === 2, 'OB: +1 and replay from same spot');
 
   // water: 7-iron from y=230, short result (2d6 = 4) = 140 yd -> y=90, in the water (y 80..120)
   const st = { ...s0, y: 230, lie: 'fairway' };
-  const c = E.playShot(H, cfg, st, { club: 'i7', power: 1, aim: H.pin }, tiers, { d1: 2, d2: 2, dir: 3 });
+  const c = E.playShot(H, cfg, st, { club: 'i7', power: 1, aim: H.pin }, tiers, { d1: 2, d2: 2, dir: 7 });
   ok(c.result.landLie === 'water' && E.lieAt(H, c.state.x, c.state.y) !== 'water' && c.state.strokes === 2, 'water: +1, drop not in water');
   ok(c.state.y > 120, 'water drop walks back toward the shot origin');
 }
@@ -55,10 +55,10 @@ console.log('lie modes');
 console.log('trees block the line');
 {
   const H = mk([sh('tee', 170, 440, 4, 4), sh('pin', 170, 40, 4, 4), sh('green', 170, 40, 20, 15), sh('trees', 170, 300, 20, 20)]);
-  const r = E.playShot(H, cfg, E.startState(H), { club: 'driver', power: 1, aim: H.pin }, tiers, { d1: 3, d2: 4, dir: 3 });
+  const r = E.playShot(H, cfg, E.startState(H), { club: 'driver', power: 1, aim: H.pin }, tiers, { d1: 3, d2: 4, dir: 7 });
   ok(r.result.blocked && r.state.lie === 'trees' && r.state.y > 300, 'ball stops at the near edge of the trees');
   const inside = { x: 170, y: 300, lie: 'trees', onGreen: false, holed: false, strokes: 1, putts: 0 };
-  const r2 = E.playShot(H, cfg, inside, { club: 'i7', power: 1, aim: H.pin }, tiers, { d1: 3, d2: 4, dir: 3 });
+  const r2 = E.playShot(H, cfg, inside, { club: 'i7', power: 1, aim: H.pin }, tiers, { d1: 3, d2: 4, dir: 7 });
   ok(!r2.result.blocked && r2.state.lie !== 'trees', 'playing out of trees ignores the trees you start in');
 }
 
@@ -104,13 +104,16 @@ console.log('club system v2');
   ok(D(i7, 4, 'fairway', 1) === 140 && D(i7, 4, 'fairway', 2) === 150 && D(i7, 3, 'fairway', 4) === 150, 'upgrades widen on target (2d6 4 is on target from tier 2, 3 from tier 4)');
   ok(D(i7, 7, 'rough') === 140 && D(i7, 11, 'rough') === 150 && D(i7, 11, 'bunker') === 140, 'rough drops one step, bunker two');
   ok(D(dr, 7, 'tee', 1, 0.5) === 125 && D(dr, 7, 'tee', 1, 0.25) === 65, 'Driver power levels: 50% = 125, 25% = 65');
-  const a = E.playShot(H, cfg, s0, { club: 'i7', power: 0.5, aim: H.pin }, tiers, { d1: 3, d2: 4, dir: 6 });
+  const a = E.playShot(H, cfg, s0, { club: 'i7', power: 0.5, aim: H.pin }, tiers, { d1: 3, d2: 4, dir: 12 });
   ok(a.result.distance === 150 && a.result.power === 0.5 || a.result.distance === 150, 'non-driver clubs ignore power (always full swing)');
   const t5 = { ...tiers, i7: 5 };
-  const b = E.playShot(H, cfg, s0, { club: 'i7', power: 1, aim: H.pin }, t5, { d1: 3, d2: 4, dir: 6 });
-  ok(a.result.angle === 15 && b.result.angle === 6 && E.playShot(H, cfg, s0, { club: 'i7', power: 1, aim: H.pin }, t5, { d1: 3, d2: 4, dir: 5 }).result.angle === 0, 'direction: tier 1 face 6 wide (+15), tier 5 face 6 slight (+6), face 5 straight');
+  const b = E.playShot(H, cfg, s0, { club: 'i7', power: 1, aim: H.pin }, t5, { d1: 3, d2: 4, dir: 12 });
+  const dirAt = (t, v) => E.playShot(H, cfg, s0, { club: 'i7', power: 1, aim: H.pin }, { ...tiers, i7: t }, { d1: 3, d2: 4, dir: v }).result.angle;
+  ok(a.result.angle === 15 && b.result.angle === 6 && dirAt(5, 11) === 0 && dirAt(1, 11) === 6 && dirAt(1, 4) === -6 && dirAt(1, 2) === -15 && dirAt(3, 4) === 0, 'direction by red 2d6: T1 12 wide (+15), 10-11 slight, 5-9 straight; T5 12 slight, 3-11 straight');
+  const fg = E.faceGroups(cfg.fans[1]), pStraight = fg.find((g) => g.angle === 0).p;
+  ok(Math.abs(pStraight - 24 / 36) < 1e-9 && Math.abs(E.faceGroups(cfg.fans[5]).find((g) => g.angle === 0).p - 34 / 36) < 1e-9, 'straight is 67% at tier 1 and 94% at tier 5');
   ok(b.result.distance === a.result.distance, 'upgrades never add distance');
-  ok(a.result.calc.zone.label === 'On target' && a.result.faces.join() === '6', 'shot carries its zone and die faces');
+  ok(a.result.calc.zone.label === 'On target' && a.result.faces.join() === '12', 'shot carries its zone and direction totals');
   ok(E.allowedClubs(cfg, 'bunker').map((c) => c.id).join() === 'i9,pw,sw,lw', 'from a bunker: 9-iron and wedges only');
 }
 

@@ -5,7 +5,7 @@
 
   // ---------------------------------------------------------------- config
   const DEFAULT_CONFIG = {
-    version: '2.1',
+    version: '2.2',
     board: { w: 340, h: 460 },
     rulerStepYd: 5,
     // CLUB SYSTEM v2. Each club hits one fixed distance; only the Driver has power levels.
@@ -29,13 +29,14 @@
       { id: 'sw', name: 'Sand Wedge', short: 'SW', kind: 'wedge', full: 90, allowedLies: ['tee', 'fairway', 'rough', 'bunker', 'trees'] },
       { id: 'lw', name: 'Lob Wedge', short: 'LW', kind: 'wedge', full: 40, allowedLies: ['tee', 'fairway', 'rough', 'bunker', 'trees'] },
     ],
-    // Shared fan, read through each card's direction strip. Upgrades turn wide into slight and slight into straight.
+    // Direction is a 2d6 roll too (two red dice). fans[tier] = angle for red totals 2..12 (11 entries).
+    // Bell curve: most rolls go straight. Upgrades widen the straight band and remove wide misses.
     fans: {
-      1: [-15, -6, 0, 0, 6, 15],
-      2: [-15, -6, 0, 0, 6, 15],
-      3: [-6, -6, 0, 0, 6, 6],
-      4: [-6, -6, 0, 0, 6, 6],
-      5: [-6, 0, 0, 0, 0, 6],
+      1: [-15, -6, -6, 0, 0, 0, 0, 0, 6, 6, 15],
+      2: [-15, -6, -6, 0, 0, 0, 0, 0, 6, 6, 15],
+      3: [-6, -6, 0, 0, 0, 0, 0, 0, 0, 6, 6],
+      4: [-6, -6, 0, 0, 0, 0, 0, 0, 0, 6, 6],
+      5: [-6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6],
     },
     // Ring putting on flat green tiles. The ring the ball is in sets the putt.
     // SAFE: small chance to hole, a miss leaves the ball in ring 1.
@@ -205,9 +206,12 @@
     let g = _fgCache.get(key);
     if (g) return g;
     const m = new Map();
+    // 11 entries = 2d6 totals 2..12 (bell curve); 6 entries = one die (legacy configs)
+    const two = fan.length === 11;
     fan.forEach((a, i) => {
       if (!m.has(a)) m.set(a, { angle: a, faces: [], p: 0 });
-      const e = m.get(a); e.faces.push(i + 1); e.p += 1 / 6;
+      const e = m.get(a), face = two ? i + 2 : i + 1;
+      e.faces.push(face); e.p += two ? (6 - Math.abs(face - 7)) / 36 : 1 / 6;
     });
     g = [...m.values()].sort((a, b) => a.angle - b.angle);
     _fgCache.set(key, g);
@@ -360,7 +364,7 @@
       if (!club.powers) decision = Object.assign({}, decision, { power: 1 });
       const tier = isTierable(club) ? tiers[club.id] || 1 : 1;
       const fan = fanFor(cfg, club, tier);
-      r = flyShot(H, cfg, state, club.id, decision.power, decision.aim, tier, sum, fan[dice.dir - 1]);
+      r = flyShot(H, cfg, state, club.id, decision.power, decision.aim, tier, sum, fan[dice.dir - (fan.length === 11 ? 2 : 1)]);
       r.club = club.id; r.power = decision.power; r.aim = decision.aim; r.tier = tier;
       r.calc = shotCalc(cfg, club, sum, decision.power, state.lie, tier);
       r.faces = faceGroups(fan).find((g) => g.angle === r.angle).faces;
@@ -533,7 +537,7 @@
       clubShots: [], pickedUp: false, gir: false, reachedGreenAt: null,
     };
     while (!st.holed && st.strokes < max) {
-      const dice = { d1: d6(rng), d2: d6(rng), dir: d6(rng) }; // drawn before deciding: common random numbers
+      const r1 = d6(rng), r2 = d6(rng), dice = { d1: d6(rng), d2: d6(rng), r1, r2, dir: r1 + r2 }; // drawn before deciding: common random numbers
       const type = shotType(st);
       let dec = null;
       dec = st.onGreen ? { putt: decidePutt(H, cfg, st, tiers, profile, ctx) } : decide(H, cfg, st, tiers, profile, ctx, false);
