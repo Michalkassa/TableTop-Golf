@@ -49,7 +49,11 @@
     green: '#73d35c', green2: '#8ce872', greenEdge: '#2f8a3a', sand: '#f2d58c', sandDot: '#d9b866', water: '#3b5dc9', wave: '#73b7f2',
     tree: '#1e5631', tree2: '#2f7d3a', tree3: '#49a35a', white: '#f4f4f4', ink: '#0f101a', gold: '#ffcd75', goldDark: '#a37d00',
   };
-  const CLUBCOL = { driver: '#3b5dc9', wood: '#a46422', iron: '#566c86', wedge: '#ef7d57', punch: '#8e44ad', putter: '#38b764' };
+  const KINDCOL = { driver: '#3b5dc9', wood: '#a46422', iron: '#566c86', wedge: '#ef7d57', putter: '#38b764' };
+  const kindOf = (id) => (id === 'putter' ? 'putter' : (E.getClub(cfg, id) || {}).kind || 'iron');
+  const clubCol = (id) => KINDCOL[kindOf(id)];
+  const ZFILL = ['#3b5dc9', '#f4f4f4', '#b13e53'], ZTXT = ['#73b7f2', '#f4f4f4', '#ff8a80'];
+  const dirCol = (a, outer) => (a === 0 ? '#38b764' : Math.abs(a) < Math.max(outer, 7) ? '#ffcd75' : '#ef7d57');
   const TIERCOL = ['#a46422', '#94b0c2', '#ffcd75', '#38b764', '#73eff7'];
   const TIERNAME = ['BRONZE', 'SILVER', 'GOLD', 'EMERALD', 'DIAMOND'];
   const PCOL = ['#e43b44', '#3b5dc9', '#ffcd75', '#b55088'];
@@ -160,7 +164,7 @@
   function explain(r) {
     if (r.putt) return [`RING ${r.ring} · ${r.choice.toUpperCase()}: needs ${r.target <= 2 ? 'nothing' : r.target + '+'}`, `Rolled <b>${r.sum}</b> → ${r.holed ? '<b>IN!</b>' : 'miss, ball to <b>ring ' + r.destRing + '</b>'}`];
     const z = r.calc.zone;
-    return [`Distance ${r.dice.d1}+${r.dice.d2} = ${r.calc.pips} → <b>${z.label.toUpperCase()}</b> tick · ${r.distance} yd`, `Direction ${r.dice.dir} → <b>${r.angle === 0 ? 'STRAIGHT' : (r.angle > 0 ? '+' : '−') + Math.abs(r.angle) + '°'}</b> line`];
+    return [`Distance ${r.dice.d1}+${r.dice.d2} = ${r.calc.pips} → <b>${z.label.toUpperCase()}</b>${z.drop ? ` (${r.from.lie} −${z.drop})` : ''} · ${r.distance} yd`, `Direction ${r.dice.dir} → <b>${r.angle === 0 ? 'STRAIGHT' : (r.angle > 0 ? '+' : '−') + Math.abs(r.angle) + '°'}</b> line`];
   }
   function resultText(r, st) {
     if (r.holed) return [r.putt ? 'IN THE CUP!' : 'HOLE OUT!!', ''];
@@ -379,7 +383,7 @@
     if (!club || !E.clubAllowed(club, st.lie)) return '';
     const tier = E.isTierable(club) ? p.tiers[club.id] : 1, aim = G.ui.aim || hole.pin;
     const base = Math.atan2(aim.y - st.y, aim.x - st.x), groups = E.faceGroups(E.fanFor(cfg, club, tier));
-    const zs = cfg.distanceZones.map((z) => E.clubDistance(cfg, club, z.from, G.ui.power, st.lie, tier)), dmax = zs[zs.length - 1];
+    const zs = [...new Set([2, 7, 12].map((v) => E.clubDistance(cfg, club, v, G.ui.power, st.lie, tier)))].sort((a, b) => a - b), dmax = zs[zs.length - 1];
     let s = `<line x1="${f2(st.x)}" y1="${f2(st.y)}" x2="${f2(aim.x)}" y2="${f2(aim.y)}" stroke="${PAL.gold}" stroke-width="${f2(px)}" stroke-dasharray="${f2(px * 3)} ${f2(px * 2)}"/>`;
     for (const g of groups) {
       const a = base + (g.angle * Math.PI) / 180, ex = st.x + Math.cos(a) * dmax, ey = st.y + Math.sin(a) * dmax;
@@ -391,7 +395,7 @@
       const pts = []; for (let k = 0; k <= 18; k++) { const a = a0 - 0.03 + ((a1 - a0 + 0.06) * k) / 18; pts.push(`${f2(st.x + Math.cos(a) * d)},${f2(st.y + Math.sin(a) * d)}`); }
       s += `<polyline points="${pts.join(' ')}" fill="none" stroke="${['#73b7f2', PAL.white, '#ff8a80'][i] || PAL.white}" stroke-width="${f2(px * (i === 1 ? 1.5 : 1))}" stroke-dasharray="${f2(px * 2)} ${f2(px * 2)}"/>`;
     });
-    if (G.ui.cloud) for (const z of cfg.distanceZones) for (const g of groups) {
+    if (G.ui.cloud) for (const z of E.zonesFor(cfg, tier)) for (const g of groups) {
       const r = E.flyShot(hole, cfg, st, club.id, G.ui.power, aim, tier, z.from, g.angle);
       const col = { water: '#3b5dc9', ob: '#e43b44', bunker: '#ef7d57', trees: '#1e5631', green: '#f4f4f4', fairway: '#d8ffcc', rough: '#2f7536' }[r.landLie];
       s += `<rect x="${f2(r.landing.x - 2 * px)}" y="${f2(r.landing.y - 2 * px)}" width="${f2(4 * px)}" height="${f2(4 * px)}" fill="${col}" stroke="${PAL.ink}" stroke-width="${f2(px)}"/>`;
@@ -530,13 +534,14 @@
     }
     const club = E.getClub(cfg, G.ui.club);
     if (!club) return out;
-    const tier = E.isTierable(club) ? p.tiers[club.id] : 1, zones = cfg.distanceZones, zcol = ['#73b7f2', '#f4f4f4', '#ff8a80'], zfill = ['#3b5dc9', '#f4f4f4', '#b13e53'];
-    const zi = (v) => zones.findIndex((z) => v >= z.from && v <= z.to);
-    const dcells = layout(SUMS.map((v) => ({ v, p: pSum(v), fill: zfill[zi(v)] || '#666', ink: zi(v) === 1 ? PAL.ink : '#fff', label: v })));
-    const dgroups = zoneGroups(dcells, (c) => { const i = zi(c.v), z = zones[i]; let pz = 0; for (let v = z.from; v <= z.to; v++) pz += pSum(v); return { k: i, text: `${E.clubDistance(cfg, club, z.from, G.ui.power, st.lie, tier)}YD ${Math.round(pz * 100)}%`, color: zcol[i] }; });
-    out.push(meterBox(`DISTANCE · ${club.name.toUpperCase()} ${Math.round(G.ui.power * 100)}%`, meterSvg(dcells, dgroups, roll ? arrowFor(dcells, roll.sum, roll.jitter[0], live) : null), 'dist'));
+    const tier = p.tiers[club.id] || 1, zi = (v) => E.zoneFor(cfg, v, tier, st.lie).idx;
+    const dcells = layout(SUMS.map((v) => ({ v, p: pSum(v), fill: ZFILL[zi(v)], ink: zi(v) === 1 ? PAL.ink : '#fff', label: v })));
+    const pOf = (i) => SUMS.filter((v) => zi(v) === i).reduce((a, v) => a + pSum(v), 0);
+    const dgroups = zoneGroups(dcells, (c) => { const i = zi(c.v); return { k: i, text: `${E.clubDistance(cfg, club, c.v, G.ui.power, st.lie, tier)}YD ${Math.round(pOf(i) * 100)}%`, color: ZTXT[i] }; });
+    const drop = (cfg.lieDrop || {})[st.lie] || 0;
+    out.push(meterBox(`DISTANCE · ${club.name.toUpperCase()}${club.powers ? ' ' + Math.round(G.ui.power * 100) + '%' : ''}${drop ? ` · ${st.lie.toUpperCase()} −${drop} STEP${drop > 1 ? 'S' : ''}` : ''}`, meterSvg(dcells, dgroups, roll ? arrowFor(dcells, roll.sum, roll.jitter[0], live) : null), 'dist'));
     const fan = E.fanFor(cfg, club, tier), outer = Math.max(...fan.map(Math.abs)) || 1;
-    const acol = (a) => (a === 0 ? '#38b764' : Math.abs(a) < outer ? '#ffcd75' : '#ef7d57');
+    const acol = (a) => dirCol(a, 15);
     const fcells = layout([1, 2, 3, 4, 5, 6].map((v) => ({ v, p: 1 / 6, fill: acol(fan[v - 1]), ink: PAL.ink, label: v })));
     const fgroups = zoneGroups(fcells, (c) => { const a = fan[c.v - 1]; return { k: a, text: a === 0 ? 'STRAIGHT' : `${a > 0 ? '+' : '−'}${Math.abs(a)}°`, color: acol(a) }; });
     out.push(meterBox('DIRECTION · RED DIE', meterSvg(fcells, fgroups, roll ? arrowFor(fcells, roll.dir, roll.jitter[1], live) : null), 'dir'));
@@ -554,41 +559,47 @@
   };
   const ICOL = { driver: ['#3b5dc9', '#73b7f2', '#1f2f75'], wood: ['#a46422', '#e0a060', '#5e3412'], iron: ['#94b0c2', '#f4f4f4', '#566c86'], punch: ['#b55088', '#e8a0c8', '#6e2a52'], wedge: ['#94b0c2', '#f4f4f4', '#566c86'], putter: ['#94b0c2', '#f4f4f4', '#566c86'] };
   function iconSvg(id) {
-    const rows = ICONS[id] || ICONS.iron, [hc, lc, dc] = ICOL[id] || ICOL.iron;
+    const k = kindOf(id), rows = ICONS[k] || ICONS.iron, [hc, lc, dc] = ICOL[k] || ICOL.iron;
     const col = { g: '#1a1c2c', s: '#c0c8d0', h: hc, l: lc, d: dc, w: '#f4f4f4', y: '#f2d58c', G: '#38b764', o: '#0f101a' };
     let s = '<svg viewBox="0 0 16 16" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">';
     rows.forEach((row, y) => { for (let x = 0; x < 16; x++) { const c = col[row[x]]; if (c) s += `<rect x="${x}" y="${y}" width="1" height="1" fill="${c}"/>`; } });
     return s + '</svg>';
   }
   const inOn = (t) => (t <= 2 ? 'IN' : t > 12 ? '–' : t === 12 ? '12' : t + '+');
-  function cardStats(id, tier) {
-    if (id === 'putter') return [`RISKY ${inOn(E.puttTarget(cfg, 2, 'risky', tier))}`, `SAFE ${inOn(E.puttTarget(cfg, 2, 'safe', tier))}`];
-    const c = E.getClub(cfg, id);
-    return [`${E.clubDistance(cfg, c, 7, 1, 'fairway', tier)} YD`, `±${Math.max(...E.fanFor(cfg, c, tier).map(Math.abs))}°`];
+  // A card shows: name, picture, tier, a distance strip (2d6 2–12: short / on target / long) and a direction strip (d6: wide / slight / straight).
+  function stripsEl(id, tier) {
+    if (id === 'putter') return [h('div', { class: 'gstat' }, `RISKY ${inOn(E.puttTarget(cfg, 2, 'risky', tier))}`), h('div', { class: 'gstat' }, `SAFE ${inOn(E.puttTarget(cfg, 2, 'safe', tier))}`)];
+    const c = E.getClub(cfg, id), fan = E.fanFor(cfg, c, tier);
+    const d = SUMS.map((v) => `<rect x="${(v - 2) * 7}" y="0" width="6" height="7" fill="${ZFILL[E.zoneFor(cfg, v, tier, 'fairway').idx]}"/>`).join('');
+    const f = fan.map((a, i) => `<rect x="${i * 13}" y="0" width="12" height="7" fill="${dirCol(a, 15)}"/>`).join('');
+    return [h('div', { class: 'gyd' }, c.powers ? `${c.full} YD+` : `${c.full} YD`),
+      h('div', { class: 'gstrip', html: `<svg viewBox="-1 -1 78 9" shape-rendering="crispEdges"><rect x="-1" y="-1" width="78" height="9" fill="#0f101a"/>${d}</svg>` }),
+      h('div', { class: 'gstrip', html: `<svg viewBox="-1 -1 79 9" shape-rendering="crispEdges"><rect x="-1" y="-1" width="79" height="9" fill="#0f101a"/>${f}</svg>` })];
   }
   function cardEl(id, tier, opts) {
     opts = opts || {};
-    const name = id === 'putter' ? 'PUTTER' : E.getClub(cfg, id).name.toUpperCase(), st = cardStats(id, tier);
+    const full = id === 'putter' ? 'PUTTER' : E.getClub(cfg, id).name.toUpperCase();
+    const name = full.length > 9 ? full.split(' ')[0][0] + '. ' + full.split(' ').slice(-1)[0] : full; // "PITCHING WEDGE" -> "P. WEDGE"
     return h('div', { class: 'gcard' + (opts.sel ? ' sel' : '') + (opts.off ? ' off' : ''), style: `--tc:${TIERCOL[tier - 1]};${opts.style || ''}`, title: opts.title, onclick: opts.onclick },
       opts.badge ? h('div', { class: 'gbadge' }, opts.badge) : null,
       h('div', { class: 'gname' }, name), h('div', { class: 'gicon', html: iconSvg(id) }),
       h('div', { class: 'gpips' }, '■'.repeat(tier) + '□'.repeat(E.MAX_TIER - tier)),
-      h('div', { class: 'gstat' }, st[0]), h('div', { class: 'gstat' }, st[1]), h('div', { class: 'gtier' }, TIERNAME[tier - 1]));
+      stripsEl(id, tier), h('div', { class: 'gtier' }, TIERNAME[tier - 1]));
   }
   const bagIds = () => [...cfg.clubs.filter((c) => c.enabled !== false).map((c) => c.id), 'putter'];
   function renderDeck() {
     const deck = document.getElementById('deck');
-    if (!G) { deck.replaceChildren(h('div', { class: 'who' }, 'YOUR BAG'), h('div', { class: 'hand' }, bagIds().map((id, i, a) => cardEl(id, 1, { style: `transform: rotate(${(i - (a.length - 1) / 2) * 4}deg) translateY(${Math.abs(i - (a.length - 1) / 2) * 4}px)` })))); return; }
+    if (!G) { deck.replaceChildren(h('div', { class: 'who' }, 'YOUR BAG'), h('div', { class: 'hand' }, bagIds().map((id, i, a) => cardEl(id, 1, { style: `transform: rotate(${(i - (a.length - 1) / 2) * 2.5}deg) translateY(${Math.abs(i - (a.length - 1) / 2) * 3}px)` })))); return; }
     const shopper = G.phase === 'shop' && G.shop ? G.players[G.shop.order[G.shop.idx]] : null;
     const p = shopper || P(), st = p.st, ids = bagIds(), n = ids.length;
     const myTurn = !shopper && G.phase === 'turn' && !p.bot && !G.busy;
     const cards = ids.map((id, i) => {
       const off = id === 'putter' ? !st.onGreen : st.onGreen || !E.clubAllowed(E.getClub(cfg, id), st.lie);
       const sel = !shopper && (id === 'putter' ? st.onGreen : G.ui.club === id);
-      const fan = `transform: rotate(${(i - (n - 1) / 2) * 4}deg) translateY(${Math.abs(i - (n - 1) / 2) * 4}px)`;
+      const fan = `transform: rotate(${(i - (n - 1) / 2) * 2.5}deg) translateY(${Math.abs(i - (n - 1) / 2) * 3}px)`;
       return cardEl(id, p.tiers[id], {
         sel: sel && !['holeEnd', 'shop', 'end'].includes(G.phase), off: !shopper && off && !['holeEnd', 'shop', 'end'].includes(G.phase), style: fan,
-        onclick: myTurn && !off && id !== 'putter' ? () => { G.ui.club = id; const mp = E.maxPower(cfg, st.lie); if (G.ui.power > mp) G.ui.power = mp; render(); } : null,
+        onclick: myTurn && !off && id !== 'putter' ? () => pickClub(id) : null,
       });
     });
     deck.replaceChildren(h('div', { class: 'who' }, h('span', { class: 'dot', style: `background:${p.color};margin-right:8px;vertical-align:-3px` }), `${p.name}'S BAG`, h('br'), h('span', { class: 'coin' }, `$${p.coins}`)), h('div', { class: 'hand' }, cards));
@@ -596,30 +607,52 @@
 
   // ------------------------------------------------------------ panel
   const clubList = () => cfg.clubs.filter((c) => c.enabled !== false);
-  // In-game club ruler: the same marks as the printed ruler, in pixel style.
+  function pickClub(id, power) {
+    const c = E.getClub(cfg, id);
+    G.ui.club = id; G.ui.power = c && c.powers ? (power || (G.ui.club === id ? G.ui.power : 1)) : 1;
+    render();
+  }
+  // The shared bag ruler: one mark per club (the Driver also has power marks). Tap a mark to pick that club.
+  // The chosen club shows its short / on target / long ticks.
   function rulerFor(p) {
-    const club = E.getClub(cfg, G.ui.club), tier = p.tiers[club.id], st = p.st, col = CLUBCOL[club.id] || '#566c86';
-    const zones = cfg.distanceZones, inks = ['#3b5dc9', '#0f101a', '#b13e53'];
-    const maxD = E.clubDistance(cfg, club, zones[zones.length - 1].from, 1, 'fairway', tier);
-    const X = (d) => Math.round(22 + (d / maxD) * 396), W = 440, Hh = 96, F = `font-family="'Press Start 2P', monospace"`;
+    const st = p.st, sel = E.getClub(cfg, G.ui.club), tier = p.tiers[sel.id] || 1;
+    const W = 440, Hh = 112, F = `font-family="'Press Start 2P', monospace"`, maxYd = 270, X = (d) => Math.round(22 + (d / maxYd) * 404);
+    const inks = ['#3b5dc9', '#0f101a', '#b13e53'];
     let s = `<svg viewBox="0 0 ${W} ${Hh}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" ${F}>`;
-    s += `<rect x="0" y="0" width="${W}" height="${Hh}" fill="#0f101a"/><rect x="3" y="3" width="${W - 6}" height="${Hh - 6}" fill="#f4f4f4"/><rect x="3" y="3" width="10" height="${Hh - 6}" fill="${col}"/>`;
-    s += `<rect x="18" y="24" width="${W - 26}" height="3" fill="#0f101a"/><rect x="17" y="19" width="12" height="12" fill="#0f101a"/><rect x="20" y="22" width="6" height="6" fill="#f4f4f4"/>`;
-    zones.forEach((z, i) => { s += `<rect x="${230 + i * 66}" y="8" width="4" height="9" fill="${inks[i]}"/><text x="${238 + i * 66}" y="16" font-size="8" fill="${inks[i]}">${z.from}-${z.to}</text>`; });
-    for (const pw of cfg.powerLevels.slice().sort((a, b) => a - b)) {
-      const xs = zones.map((z) => X(E.clubDistance(cfg, club, z.from, pw, 'fairway', tier)));
-      const mid = xs[1], ok = pw <= E.maxPower(cfg, st.lie) + 1e-9, sel = pw === G.ui.power;
-      s += `<g data-power="${ok ? pw : ''}" style="cursor:${ok ? 'pointer' : 'not-allowed'}" opacity="${ok ? 1 : 0.25}">`;
-      s += `<rect x="${xs[0] - 22}" y="30" width="${xs[2] - xs[0] + 44}" height="${Hh - 36}" fill="${sel ? '#ffcd75' : '#e4e4e4'}"/>`;
-      if (sel) s += `<rect x="${xs[0] - 22}" y="30" width="${xs[2] - xs[0] + 44}" height="3" fill="#a37d00"/>`;
-      xs.forEach((x, i) => { s += `<rect x="${x - 1}" y="27" width="${i === 1 ? 4 : 3}" height="${i === 1 ? 22 : 16}" fill="${inks[i]}"/>`; });
-      s += `<rect x="${mid - 24}" y="54" width="48" height="16" fill="${col}"/><text x="${mid}" y="66" text-anchor="middle" font-size="9" fill="#fff">${Math.round(pw * 100)}%</text>`;
-      s += `<text x="${mid}" y="84" text-anchor="middle" font-size="8" fill="#333c57">${E.clubDistance(cfg, club, 7, pw, 'fairway', tier)}YD</text>`;
-      s += `</g>`;
+    s += `<rect width="${W}" height="${Hh}" fill="#0f101a"/><rect x="3" y="3" width="${W - 6}" height="${Hh - 6}" fill="#f4f4f4"/>`;
+    s += `<rect x="18" y="48" width="${W - 26}" height="3" fill="#0f101a"/><rect x="17" y="43" width="12" height="12" fill="#0f101a"/><rect x="20" y="46" width="6" height="6" fill="#f4f4f4"/>`;
+    for (let yd = 50; yd < maxYd; yd += 50) s += `<rect x="${X(yd)}" y="51" width="1" height="4" fill="#94b0c2"/>`;
+    // selected club: short / on target / long ticks
+    const ticks = [...new Set([2, 7, 12].map((v) => E.clubDistance(cfg, sel, v, G.ui.power, 'fairway', tier)))];
+    [E.baseDistance(cfg, sel, G.ui.power) - cfg.notchYd, E.baseDistance(cfg, sel, G.ui.power), E.baseDistance(cfg, sel, G.ui.power) + cfg.notchYd].forEach((d, i) => {
+      s += `<rect x="${X(d) - 1}" y="${i === 1 ? 30 : 36}" width="${i === 1 ? 4 : 3}" height="${i === 1 ? 18 : 12}" fill="${inks[i]}"/>`;
+    });
+    void ticks;
+    // driver power marks (top row)
+    const dr = cfg.clubs.find((c) => c.powers);
+    if (dr) {
+      const ok = E.clubAllowed(dr, st.lie);
+      for (const pw of cfg.powerLevels.slice().sort((a, b) => a - b)) {
+        const x = X(E.baseDistance(cfg, dr, pw)), on = sel.id === dr.id && G.ui.power === pw;
+        s += `<g data-club="${ok ? dr.id : ''}" data-power="${pw}" style="cursor:${ok ? 'pointer' : 'not-allowed'}" opacity="${ok ? 1 : 0.25}">`;
+        s += `<rect x="${x - 14}" y="8" width="28" height="16" fill="${on ? '#ffcd75' : KINDCOL.driver}"/><text x="${x}" y="20" text-anchor="middle" font-size="7" fill="${on ? '#0f101a' : '#fff'}">D${Math.round(pw * 100)}</text>`;
+        s += `<rect x="${x}" y="24" width="1" height="24" fill="${KINDCOL.driver}"/></g>`;
+      }
     }
+    // every other club (bottom rows, alternating so labels don't overlap)
+    cfg.clubs.filter((c) => !c.powers && c.enabled !== false).sort((a, b) => a.full - b.full).forEach((c, i) => {
+      const x = X(c.full), ok = E.clubAllowed(c, st.lie), on = sel.id === c.id, y = i % 2 ? 76 : 58;
+      s += `<g data-club="${ok ? c.id : ''}" style="cursor:${ok ? 'pointer' : 'not-allowed'}" opacity="${ok ? 1 : 0.25}">`;
+      s += `<rect x="${x}" y="51" width="1" height="${y - 51}" fill="${KINDCOL[c.kind]}"/>`;
+      s += `<rect x="${x - 12}" y="${y}" width="24" height="16" fill="${on ? '#ffcd75' : KINDCOL[c.kind]}"/><text x="${x}" y="${y + 12}" text-anchor="middle" font-size="7" fill="${on ? '#0f101a' : '#fff'}">${c.short}</text></g>`;
+    });
+    s += `<text x="${W - 10}" y="${Hh - 8}" text-anchor="end" font-size="7" fill="#566c86">${sel.name.toUpperCase()} ${E.baseDistance(cfg, sel, G.ui.power)}YD · SHORT/LONG ±${cfg.notchYd}</text>`;
     s += '</svg>';
     const box = h('div', { class: 'svgbox', html: s });
-    box.addEventListener('click', (e) => { const t = e.target.closest('[data-power]'); if (t && t.dataset.power && !G.busy && !P().bot && G.phase === 'turn') { G.ui.power = +t.dataset.power; render(); } });
+    box.addEventListener('click', (e) => {
+      const t = e.target.closest('[data-club]');
+      if (t && t.dataset.club && !G.busy && !P().bot && G.phase === 'turn') pickClub(t.dataset.club, t.dataset.power ? +t.dataset.power : null);
+    });
     return box;
   }
   function ringPx(r) {
@@ -680,7 +713,7 @@
       h('div', { class: 'player' }, h('span', { class: 'dot', style: `background:${p.color}` }),
         h('div', null, h('div', { class: 'pname' }, p.name + (p.bot ? ' [CPU]' : '')), h('div', { class: 'meta' }, `Stroke ${st.strokes + 1} · ${lieName} · ${Math.round(E.dist(st, hole.pin))} yd to the cup · `, h('span', { class: 'coin' }, `$${p.coins}`)))),
       h('div', { id: 'tray' },
-        h('div', { id: 'dicebox' }, G.phase !== 'turn' && G.lastDice ? staticDice() : G.phase === 'turn' ? h('div', { class: 'hint' }, p.bot ? 'Thinking…' : st.onGreen ? 'Pick SAFE or RISKY' : 'Pick a card below · tap a power mark · tap the course to aim · ROLL') : null),
+        h('div', { id: 'dicebox' }, G.phase !== 'turn' && G.lastDice ? staticDice() : G.phase === 'turn' ? h('div', { class: 'hint' }, p.bot ? 'Thinking…' : st.onGreen ? 'Pick SAFE or RISKY' : 'Pick a club (card or ruler mark) · tap the course to aim · ROLL') : null),
         metersFor(p)),
       G.lastExplain && G.phase !== 'turn' ? h('div', { class: 'explain' }, G.lastExplain.map((t) => h('div', { class: 'chip', html: t }))) : null));
     if (st.onGreen) {
@@ -691,8 +724,8 @@
           E.ringOf(hole, st) > 1 ? h('button', { class: 'big', style: 'background:var(--risky);color:#fff', onclick: () => takeShot('risky') }, 'RISKY') : null) : null));
     } else {
       out.push(h('div', { class: 'card' },
-        G.ui.club ? [h('h2', null, `${E.getClub(cfg, G.ui.club).name.toUpperCase()} · POWER ${Math.round(G.ui.power * 100)}% · TAP A MARK`), rulerFor(p)] : h('h2', null, 'PICK A CLUB CARD BELOW'),
-        E.maxPower(cfg, st.lie) < 1 ? h('div', { class: 'hint' }, `In the ${st.lie}: max ${Math.round(E.maxPower(cfg, st.lie) * 100)}% power.`) : null,
+        G.ui.club ? [h('h2', null, `BAG RULER · ${E.getClub(cfg, G.ui.club).name.toUpperCase()}${E.getClub(cfg, G.ui.club).powers ? ' ' + Math.round(G.ui.power * 100) + '%' : ''}`), rulerFor(p)] : h('h2', null, 'PICK A CLUB CARD BELOW'),
+        (cfg.lieDrop || {})[st.lie] ? h('div', { class: 'hint' }, `In the ${st.lie}: your result drops ${cfg.lieDrop[st.lie]} step${cfg.lieDrop[st.lie] > 1 ? 's' : ''} (long → on target → short).`) : null,
         h('div', { class: 'row', style: 'margin-top:12px' },
           h('button', { class: 'big', disabled: p.bot || G.phase !== 'turn' || !G.ui.club, onclick: () => takeShot() }, 'ROLL!'),
           G.ui.aim ? h('button', { disabled: p.bot, onclick: () => { G.ui.aim = null; render(); } }, 'AIM AT FLAG') : h('span', { class: 'hint' }, 'aiming at the flag'),

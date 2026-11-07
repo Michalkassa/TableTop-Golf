@@ -8,7 +8,7 @@ A web app for designing, playing, simulating and **optimizing** a tabletop golf 
 - **Gamble meters:** next to the tumbling dice, each roll has a pixel number line. Every outcome is as wide as its chance, so 7 is wide and 2 or 12 are slivers, coloured short / middle / long. Direction uses the six faces with their angles, and putting shows the IN numbers against the misses. Once the dice land, a gold arrow points at the result.
 - **Pro shop (Balatro-style):** after each hole, every human player is offered 3 upgrade cards, sometimes with one on SALE, and can REROLL for $1. Buying a card upgrades that club in your hand. CPU players shop on their own.
 - **Camera:** it follows the ball. It frames your ball, the flag and your shot's reach, so it tightens as you get closer, and it zooms onto the green for putts.
-- **Long shots:** pick a club, tap a power mark on its ruler, tap the board to aim, then roll. The dice tumble, the rolled fan line and ruler tick light up, and the ball flies there.
+- **Long shots:** pick a club (tap its card or its mark on the bag ruler; the Driver also has 25–100% power marks), tap the board to aim, then roll. The dice tumble, the rolled fan line lights up, and the ball flies there. (`clubs-v2` branch; `main` still uses the v1 power ruler.)
 - **Greens:** the board zooms in and you pick SAFE or RISKY on your putter card.
 - **Turn order:** the player furthest from the cup goes next.
 - **Coins:** gold coin tokens sit on the course, and stopping on one picks it up.
@@ -50,13 +50,13 @@ Non-goals for v1: online multiplayer, accounts, 3D graphics.
 
 ## 2. The game (rules engine source of truth)
 
-> **Two club systems.** Section **2.0** is the **decided club system (v2)**, which is the target for the board game. Sections 2.3–2.6 and 2.8 describe **v1**: 4 clubs, every club has 25–100% power, and tiers add distance. The prototype, simulator and printed kit still run v1 until they're rebuilt for v2.
+> **Two club systems.** Section **2.0** is the **club system v2**, the target for the board game. On the **`clubs-v2` branch** the engine, the game, the design lab and the printable kit all run v2. Sections 2.3–2.6 and 2.8 describe **v1** (4 clubs, every club has 25–100% power, tiers add distance), which is still what `main` runs.
 
-### 2.0 Club system v2 (decided, not yet in the prototype)
+### 2.0 Club system v2 (built on the `clubs-v2` branch)
 
 **Goal:** this must play smoothly as a real board game, so the cards carry as few numbers as possible and nobody does maths at the table.
 
-**The bag: 12 club cards per player**
+**The bag: 12 clubs plus the Putter, one card each**
 
 | Card | Swing | Distance (proposed) |
 |---|---|---|
@@ -71,6 +71,7 @@ Non-goals for v1: online multiplayer, accounts, 3D graphics.
 | 9-Iron | full swing only | 130 |
 | Pitching Wedge | full swing only | 115 |
 | Sand Wedge | full swing only | 90 |
+| Lob Wedge | full swing only | 40 |
 | Putter | green only | rings (2.7) |
 
 - **Choosing a club is the distance decision.** Instead of picking a power level, you pick the club whose distance fits the shot. Only the Driver keeps a power choice, for tee shots that need to be shorter.
@@ -106,11 +107,27 @@ Non-goals for v1: online multiplayer, accounts, 3D graphics.
 
 **Kept from v1:** the course pieces, trees blocking the shot line, water and out of bounds penalties, ring putting on green tiles (2.7), and coins (score plus coin tokens).
 
-**Still to decide for v2** (also in section 14):
-- **Rough, bunker and trees:** the v1 power cap no longer works. One option is that your result drops one band (long → on target, on target → short). Another is that you must use a shorter club.
-- **Shots shorter than the Sand Wedge** (under about 80 yd, off the green): a chip rule, for example a chip onto the green landing in ring 3 or 4, or a half swing allowed for wedges only.
-- **Whether short and long should be one notch for every club,** including the Driver, or one notch per 10% of the distance.
-- **Whether a 12-card bag is too much** to manage at the table. A shorter bag (for example Driver, 3W, 5i, 7i, 9i, PW, SW, Putter) would cut the components nearly in half.
+**Decided after testing:**
+- **Bag size:** the full bag is used. A **Lob Wedge** was added for short shots.
+- **Lies:** from the rough the result **drops one step** (long → on target → short). From a bunker or the trees it drops **two steps**.
+- **Where each club can be played from:**
+  - Woods: tee, fairway or rough.
+  - 4- to 8-iron: also from the trees.
+  - 9-iron and the wedges: from anywhere except the green, including bunkers.
+- **Lob Wedge distance: 40 yd** (30 / 40 / 50). At 50 yd, its short result (40) was still too long for a ball 15–25 yd from the cup but off the green: bots flew over the green and back until they hit the stroke limit on 2.3% of holes. At 40 yd that drops to 0.7%.
+
+**How it plays** (bots, 300 random holes): about **+0.7 over par per hole**, against about +0.4 for v1. The short game is still the hardest part, because the shortest result is 30 yd.
+
+**Built on the `clubs-v2` branch:**
+- **Engine:** all 12 clubs, Driver-only power, tier strips, lie drops; tests cover every rule.
+- **Game:** a 13-card hand, the shared bag ruler (tap a club's mark), and meters that include the lie drop.
+- **Design lab:** editors for the tier strips, the notch and the lie drops.
+- **Printable kit:** the shared bag ruler, the shared 5-line fan, one card per club per tier (no distance numbers), and a two-column player board.
+
+**Still open:**
+- **Very short shots:** whether a chip rule is still needed under 30 yd.
+- **Notch size:** whether short and long should be one notch (10 yd) for every club, including the Driver.
+- **Balance:** whether v2 should be made a bit easier.
 
 ### 2.1 Scale and table
 
@@ -507,10 +524,9 @@ tests/
 ## 14. Open design questions to test with the app
 
 **Club system v2 (2.0):**
-- What replaces the power cap as the rough / bunker / trees penalty?
-- How are shots shorter than the Sand Wedge played?
-- Are the proposed distances and tier strips balanced? (Rebuild the simulator for v2 and test.)
-- Is a 12-card bag the right size for the table, or should it be shorter?
+- v2 plays about 0.3 strokes per hole harder than v1 (+0.7 against +0.4). Should the tier strips start wider, or the lie drops be softer?
+- Is a chip rule still needed for shots under 30 yd?
+- 13 cards per player across 5 tiers is 65 club cards for the printed game. Is that acceptable?
 
 Each question can be tested in the prototype (see its **Guide** tab). First readings, from small runs on the 4 reference holes, so treat them as hints:
 

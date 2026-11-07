@@ -41,8 +41,8 @@
   const powLabel = (p) => Math.round(p * 100) + '%';
   // The 3 distance zones (long game) or putting bands, each as one representative 2d6 total + probability.
   const inOn = (t) => (t <= 2 ? 'always in' : t > 12 ? "can't go in" : t === 12 ? '12' : `${t}+`);
-  function zoneRows(cfg) {
-    const list = cfg.distanceZones;
+  function zoneRows(cfg, tier) {
+    const list = E.zonesFor(cfg, tier || 1);
     return list.map((z) => {
       let p = 0; for (let x = z.from; x <= z.to; x++) p += (6 - Math.abs(x - 7)) / 36;
       return { sum: z.from, p, from: z.from, to: z.to, label: z.label || `${z.from}–${z.to}`, range: z.from === z.to ? `${z.from}` : `${z.from}–${z.to}`, z };
@@ -475,13 +475,13 @@
       if (!st.onGreen) {
         const allowed = E.allowedClubs(cfg, st.lie);
         if (!allowed.find((c) => c.id === S.ui.club)) S.ui.club = (allowed[0] || {}).id;
-        const pw = E.powersFor(cfg, st.lie);
+        const pw = E.powersFor(cfg, st.lie, E.getClub(cfg, S.ui.club));
         if (!pw.includes(S.ui.power)) S.ui.power = pw[0];
         kids.push(row('Club', ...cfg.clubs.filter((c) => c.enabled !== false).map((c) =>
           h('button', { class: S.ui.club === c.id ? 'on' : '', disabled: !E.clubAllowed(c, st.lie), onclick: () => { S.ui.club = c.id; S.suggestion = null; render(); } },
             `${c.name}${E.isTierable(c) ? ' T' + (g.tiers[c.id] || 1) : ''}`))));
         kids.push(row('Power', ...cfg.powerLevels.slice().sort((a, b) => a - b).map((p) => h('button', { class: S.ui.power === p ? 'on' : '', disabled: !pw.includes(p), onclick: () => { S.ui.power = p; S.suggestion = null; render(); } }, powLabel(p))),
-          E.maxPower(cfg, st.lie) < 1 ? h('span', { class: 'warn' }, `${st.lie}: max ${powLabel(E.maxPower(cfg, st.lie))}`) : null));
+          (cfg.lieDrop || {})[st.lie] ? h('span', { class: 'warn' }, `${st.lie}: result drops ${cfg.lieDrop[st.lie]} step(s)`) : null));
         kids.push(row('Aim', h('span', { class: 'muted' }, S.aim ? `(${S.aim.x}, ${S.aim.y}) · click the board to change` : 'pin · click the board to aim elsewhere'),
           S.aim ? h('button', { class: 'small', onclick: () => { S.aim = null; render(); } }, 'Aim at pin') : null));
       } else {
@@ -534,11 +534,11 @@
     if (!club) return null;
     const tier = E.isTierable(club) ? g.tiers[club.id] || 1 : 1;
     const groups = E.faceGroups(E.fanFor(cfg, club, tier));
-    const zr = zoneRows(cfg), mp = E.maxPower(cfg, st.lie);
-    return sec(`Club card · ${club.name} T${tier}${mp < 1 ? ` · ${st.lie}: max ${powLabel(mp)}` : ''}`,
+    const zr = zoneRows(cfg, tier), drop = (cfg.lieDrop || {})[st.lie] || 0;
+    return sec(`Club card · ${club.name} T${tier}${drop ? ` · ${st.lie}: −${drop} step` : ''}`,
       h('div', { class: 'scroll-x' }, h('table', null,
         h('tr', null, h('th', null, 'Power'), zr.map((z) => h('th', null, `${z.label} (2d6 ${z.range}, ${pct(z.p)})`))),
-        cfg.powerLevels.slice().sort((a, b) => b - a).map((p) => h('tr', { style: p > mp + 1e-9 ? 'opacity:.35' : '' }, h('td', null, powLabel(p)),
+        E.powersFor(cfg, st.lie, club).sort((a, b) => b - a).map((p) => h('tr', null, h('td', null, powLabel(p)),
           zr.map((z) => h('td', { style: p === S.ui.power ? 'font-weight:700' : '' }, E.clubDistance(cfg, club, z.sum, p, st.lie, tier) + ' yd')))))),
       h('div', { class: 'hint' }, 'Fan T' + tier + ': ' + groups.map((gr) => `${gr.angle > 0 ? '+' : ''}${gr.angle}° (faces ${gr.faces.join(',')})`).join(' · ')));
   }
@@ -827,32 +827,30 @@
 
     out.push(sec('Clubs',
       h('div', { class: 'scroll-x' }, h('table', null,
-        h('tr', null, h('th', null, 'Club'), h('th', null, 'On'), h('th', null, 'Full (yd)'), h('th', null, '+/tier'), h('th', null, 'T1 → T5 at 100%'), h('th', null, 'Lies: tee fw rgh bnk trs')),
+        h('tr', null, h('th', null, 'Club'), h('th', null, 'On'), h('th', null, 'Distance (yd)'), h('th', null, 'Power levels'), h('th', null, 'Lies: tee fw rgh bnk trs')),
         cfg.clubs.map((c, i) => h('tr', null,
           h('td', null, c.name),
           h('td', null, h('input', { type: 'checkbox', checked: c.enabled !== false, onchange: (e) => { c.enabled = e.target.checked; cfgChanged(); } })),
           h('td', null, cnum(`clubs.${i}.full`, 5, 10, 400, 's')),
-          h('td', null, cnum(`clubs.${i}.tierDistanceBonus`, 5, 0, 50, 's')),
-          h('td', null, `${E.clubFull(c, 1)} → ${E.clubFull(c, E.MAX_TIER)}`),
+          h('td', null, c.powers ? 'yes' : 'full swing'),
           h('td', null, ['tee', 'fairway', 'rough', 'bunker', 'trees'].map((lie) => h('input', { type: 'checkbox', title: lie, checked: c.allowedLies.includes(lie), onchange: (e) => {
             c.allowedLies = e.target.checked ? c.allowedLies.concat([lie]) : c.allowedLies.filter((x) => x !== lie); cfgChanged();
           } }))))))),
-      cfg.clubs.filter((c) => c.fixedFan).map((c) => fanEditor('clubs.' + cfg.clubs.indexOf(c), 'fixedFan', c.name + ' fan')),
-      row('Power levels', ...cfg.powerLevels.map((p, i) => numIn(p, 0.05, 1, 0.05, (v) => { cfg.powerLevels[i] = v; cfgChanged(); }, 's')),
+      row('Driver power', ...cfg.powerLevels.map((p, i) => numIn(p, 0.05, 1, 0.05, (v) => { cfg.powerLevels[i] = v; cfgChanged(); }, 's')),
         h('button', { class: 'small', onclick: () => { cfg.powerLevels.push(0.25); cfgChanged(); } }, '+'),
         cfg.powerLevels.length > 1 ? h('button', { class: 'small', onclick: () => { cfg.powerLevels.pop(); cfgChanged(); } }, '−') : null),
-      h('div', { class: 'hint' }, 'Distance zones: club full distance × power × zone. 2d6 picks the zone.'),
-      cfg.distanceZones.map((z, i) => row(z.label, '2d6', cnum(`distanceZones.${i}.from`, 1, 2, 12, 's'), '–', cnum(`distanceZones.${i}.to`, 1, 2, 12, 's'), '×', cnum(`distanceZones.${i}.mult`, 0.05, 0.5, 1.5, 's'),
-        h('span', { class: 'muted' }, pct(zoneRows(cfg)[i].p)))),
-      row('Ruler step', cnum('rulerStepYd', 1, 1, 20), 'yd (all distances round to this)')));
+      h('div', { class: 'hint' }, 'Distance strip per tier: SHORT if 2d6 ≤ the first number, LONG if ≥ the second, ON TARGET in between. Short / long = one notch from the club\'s mark.'),
+      TIERS.map((t) => row(`Tier ${t}`, 'short ≤', cnum(`tierStrips.${t - 1}.0`, 1, 1, 6, 's'), 'long ≥', cnum(`tierStrips.${t - 1}.1`, 1, 8, 13, 's'),
+        h('span', { class: 'muted' }, `on target ${pct(zoneRows(cfg, t)[1].p)}`))),
+      row('Notch', cnum('notchYd', 5, 5, 30), 'yd')));
 
     out.push(sec('Angle fans (degrees per direction-die face)',
       row(null, h('label', { style: 'min-width:0' }, h('input', { type: 'checkbox', checked: S.ui.mirror, onchange: (e) => { S.ui.mirror = e.target.checked; } }), ' keep symmetric (face 1 = −face 6, 2 = −5, 3 = −4)')),
       TIERS.map((t) => fanEditor('fans', t, `Tier ${t}`))));
 
     out.push(sec('Lies',
-      h('div', { class: 'hint' }, 'The only distance penalty for a lie is a cap on power.'),
-      ['tee', 'fairway', 'rough', 'bunker', 'trees'].map((lie) => row(lie, 'max power', cnum(`lieMaxPower.${lie}`, 0.25, 0.25, 1, 's'), h('span', { class: 'muted' }, powLabel(cfg.lieMaxPower[lie]))))));
+      h('div', { class: 'hint' }, 'Lie penalty: the result drops this many steps (long → on target → short).'),
+      ['tee', 'fairway', 'rough', 'bunker', 'trees'].map((lie) => row(lie, 'drop', cnum(`lieDrop.${lie}`, 1, 0, 2, 's'), 'steps'))));
 
     out.push(sec('Putting (rings on the green)',
       h('div', { class: 'hint' }, 'Roll 2d6: the number or more = in. SAFE misses go to ring 1, RISKY misses go to ring 2 (past the cup). 13 = can\'t go in.'),
@@ -957,11 +955,12 @@
       list.push({ path: `fanInner.${t}`, label: `Tier ${t} fan: inner angle (faces 2/5)` });
     }
     cfg.clubs.forEach((c, i) => {
-      for (const k of ['full', 'tierDistanceBonus']) list.push({ path: `clubs.${i}.${k}`, label: `${c.name} ${k}` });
+      list.push({ path: `clubs.${i}.full`, label: `${c.name} distance` });
       list.push({ path: `clubs.${i}.enabled`, label: `${c.name} enabled (0/1)` });
     });
-    for (const l in cfg.lieMaxPower) list.push({ path: `lieMaxPower.${l}`, label: `Max power: ${l}` });
-    cfg.distanceZones.forEach((z, i) => list.push({ path: `distanceZones.${i}.mult`, label: `Zone ${z.label} multiplier` }));
+    for (const l in cfg.lieDrop) list.push({ path: `lieDrop.${l}`, label: `Lie drop: ${l}` });
+    TIERS.forEach((t) => { list.push({ path: `tierStrips.${t - 1}.0`, label: `Tier ${t}: short if 2d6 ≤` }); list.push({ path: `tierStrips.${t - 1}.1`, label: `Tier ${t}: long if 2d6 ≥` }); });
+    list.push({ path: 'notchYd', label: 'Short/long notch (yd)' });
     cfg.powerLevels.forEach((p, i) => list.push({ path: `powerLevels.${i}`, label: `Power level ${i + 1}` }));
     [1, 2, 3, 4].forEach((r) => list.push({ path: `putting.safe.${r - 1}`, label: `Putting: ring ${r} SAFE number` }));
     [2, 3, 4].forEach((r) => list.push({ path: `putting.risky.${r - 1}`, label: `Putting: ring ${r} RISKY number` }));
@@ -1118,7 +1117,7 @@
   function renderPrint() {
     const cfg = S.cfg, ui = S.ui;
     const clubs = C.kitClubs(cfg);
-    if (!ui.printClub || !clubs.includes(ui.printClub)) ui.printClub = 'iron';
+    if (!ui.printClub || !clubs.includes(ui.printClub)) ui.printClub = 'i7';
     ui.printTier = ui.printTier || 1;
     const kit = C.clubKit(cfg, ui.printClub, ui.printTier);
     const board = C.playerBoard(cfg);
@@ -1126,11 +1125,11 @@
     const fig = (c) => h('figure', null, svgEl(C.wrap(c, PX)),
       h('figcaption', null, h('span', null, `${c.title} · ${Math.round(c.w)} × ${Math.round(c.h)} mm`),
         h('button', { class: 'small', onclick: () => downloadText(c.name + '.svg', C.wrap(c), 'image/svg+xml') }, 'SVG')));
-    const usableClub = ui.printClub !== 'putter' && E.getClub(cfg, ui.printClub).allowedLies.some((l) => l === 'fairway' || l === 'tee') ? ui.printClub : 'iron';
+    const usableClub = ui.printClub !== 'putter' && E.getClub(cfg, ui.printClub).allowedLies.some((l) => l === 'fairway' || l === 'tee') ? ui.printClub : 'i7';
     const diagram = C.usageDiagram(cfg, { club: usableClub, tier: ui.printTier });
     return [
       sec('Physical shot kit',
-        h('div', { class: 'hint' }, 'Each club has a ruler and a clear fan for every tier. Push a pin through the ball and both pieces swing around it: the fan sets the direction (one line per die face), the ruler the distance. Choose a power mark, roll 2d6: blue tick 2–4, black 5–9, red 10–12. Generated from the current Rules config, so it matches the simulation.'),
+        h('div', { class: 'hint' }, 'Club system v2: one shared bag ruler and one shared fan for everyone, plus a card per club per tier. Cards show no distances: the 2d6 strip says SHORT / ON TARGET / LONG and the die strip says WIDE / SLIGHT / STRAIGHT; the bag ruler has each club\'s mark (short / long = one notch either side). Generated from the current Rules config.'),
         row('Club', ...clubs.map((id) => h('button', { class: ui.printClub === id ? 'on' : '', onclick: () => { ui.printClub = id; render(); } }, id === 'putter' ? 'Putter' : E.getClub(cfg, id).name))),
         row('Tier', ...TIERS.map((t) => h('button', { class: ui.printTier === t ? 'on' : '', onclick: () => { ui.printTier = t; render(); } }, t))),
         h('div', { class: 'row' },
@@ -1139,9 +1138,12 @@
           h('button', { onclick: () => printComponents(clubs.flatMap((id) => TIERS.flatMap((t) => C.clubKit(cfg, id, t))), 'full kit') }, 'Print the full kit'),
           h('button', { onclick: () => downloadText(diagram.name + '.svg', C.wrap(diagram, 3), 'image/svg+xml') }, 'Download picture (SVG)')),
         h('div', { class: 'row' },
-          h('button', { onclick: () => printComponents([board], 'player board', 'A4 landscape') }, 'Print player board')),
-        h('div', { class: 'hint' }, 'Rulers longer than 27 cm (Driver, Wood) print on A3. Print the fans on transparency film or cut them from clear plastic; print rulers and the player board on card stock.')),
-      h('div', { class: 'kit' }, kit.map(fig)),
+          h('button', { onclick: () => printComponents([board], 'player board', 'A4 landscape') }, 'Print player board'),
+          h('button', { onclick: () => printComponents([C.bagRuler(cfg), C.sharedFan(cfg)], 'bag ruler and fan', 'A3 landscape') }, 'Print bag ruler + fan (A3)'),
+          h('button', { onclick: () => printComponents(clubs.flatMap((id) => TIERS.map((t) => C.clubKit(cfg, id, t)[0])), 'all cards', 'A4 portrait') }, 'Print all cards')),
+        h('div', { class: 'hint' }, 'The bag ruler is 31 cm long: print it on A3. Print the fan on transparency film; cards and the player board on card stock.')),
+      sec('Shared pieces', h('div', { class: 'kit' }, fig(C.bagRuler(cfg)), fig(C.sharedFan(cfg)))),
+      sec(`${ui.printClub === 'putter' ? 'Putter' : E.getClub(cfg, ui.printClub).name} · tiers 1–5`, h('div', { class: 'kit' }, TIERS.map((t) => fig(C.clubKit(cfg, ui.printClub, t)[0])))),
       sec('Green tiles', h('div', { class: 'hint' }, 'Flat greens with the putting rings printed on them. Easy ★ to hard ★★★: harder tiles have smaller rings and the cup near an edge.'),
         h('div', { class: 'row' }, h('button', { onclick: () => printComponents([C.greenTileSheet(cfg)], 'green tiles', 'A4 landscape') }, 'Print green tiles')),
         h('div', { class: 'kit' }, fig(C.greenTileSheet(cfg)))),
@@ -1157,7 +1159,7 @@
   function renderAbout() {
     const Q = [
       ['Is ±15° at tier 1 too punishing?', 'Simulate → Parameter sweep → "Tier 1 fan: outer angle", 9 to 21 step 3, random holes. Watch vs par, OB and water.'],
-      ['How big should each tier step be?', 'Simulate → "All clubs at tier" 1…5 and compare vs par. Sweep "Iron tierDistanceBonus" 0–15 or "Tier 3 fan: outer angle". "Measure upgrade value" works from any tier to the next.'],
+      ['How big should each tier step be?', 'Simulate → "All clubs at tier" 1…5 and compare vs par. Sweep "Tier 2: short if 2d6 ≤" or "Tier 3 fan: outer angle". "Measure upgrade value" works from any tier to the next.'],
       ['Are upgrades worth their cost?', 'Measure upgrade value at tier 1, 2, 3 and 4. Strokes saved per coin should be similar across clubs (coefficient of variation < 0.3).'],
       ['Is the rough cap (75%) a fair penalty?', 'Sweep "Max power: rough" from 0.5 to 1 and watch vs par and how often bots land in the rough.'],
       ['Is ±10% distance luck the right amount?', 'Sweep "Zone Short multiplier" (and Long) and compare score spread (SD) and vs par.'],

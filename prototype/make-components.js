@@ -24,6 +24,8 @@ for (const id of C.kitClubs(cfg)) {
   }
 }
 fs.writeFileSync(path.join(outDir, 'player-board.svg'), C.wrap(C.playerBoard(cfg))); n++;
+fs.writeFileSync(path.join(outDir, 'bag-ruler.svg'), C.wrap(C.bagRuler(cfg))); n++;
+fs.writeFileSync(path.join(outDir, 'shared-fan.svg'), C.wrap(C.sharedFan(cfg))); n++;
 fs.writeFileSync(path.join(outDir, 'green-tiles.svg'), C.wrap(C.greenTileSheet(cfg))); n++;
 fs.writeFileSync(path.join(outDir, 'coin-tokens.svg'), C.wrap(C.coinTokenSheet(cfg))); n++;
 fs.writeFileSync(path.join(outDir, 'kit-in-use.svg'), C.wrap(C.usageDiagram(cfg), 3));

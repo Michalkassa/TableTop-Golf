@@ -5,34 +5,37 @@
 
   // ---------------------------------------------------------------- config
   const DEFAULT_CONFIG = {
-    version: '1.0',
+    version: '2.0',
     board: { w: 340, h: 460 },
-    rulerStepYd: 1,
-    // Simple distance: club's full distance × power × zone. 2d6 picks the zone.
-    powerLevels: [1, 0.75, 0.5, 0.25],
-    distanceZones: [
-      { from: 2, to: 4, mult: 0.9, label: 'Short' },
-      { from: 5, to: 9, mult: 1.0, label: 'Middle' },
-      { from: 10, to: 12, mult: 1.1, label: 'Long' },
-    ],
-    // The only lie penalty on distance: a cap on power.
-    lieMaxPower: { tee: 1, fairway: 1, rough: 0.75, bunker: 0.5, trees: 0.5 },
+    rulerStepYd: 5,
+    // CLUB SYSTEM v2. Each club hits one fixed distance; only the Driver has power levels.
+    powerLevels: [1, 0.75, 0.5, 0.25], // Driver only
+    notchYd: 10,                        // a SHORT result is one notch before the club's mark, LONG one notch past
+    // Distance strip per tier: [short if 2d6 <= a, long if 2d6 >= b], on target in between. Upgrades widen "on target".
+    tierStrips: [[4, 10], [3, 11], [3, 11], [2, 12], [2, 12]],
+    // Lie penalty: the result drops this many steps (long -> on target -> short).
+    lieDrop: { tee: 0, fairway: 0, rough: 1, bunker: 2, trees: 2 },
     clubs: [
-      // full = middle-zone distance at 100% power, tier 1. Each tier above 1 adds tierDistanceBonus.
-      { id: 'driver', name: 'Driver', full: 250, tierDistanceBonus: 10, enabled: true, allowedLies: ['tee'] },
-      { id: 'wood', name: 'Wood', full: 210, tierDistanceBonus: 10, enabled: true, allowedLies: ['tee', 'fairway', 'rough'] },
-      { id: 'iron', name: 'Iron', full: 160, tierDistanceBonus: 5, enabled: true, allowedLies: ['tee', 'fairway', 'rough', 'bunker', 'trees'] },
-      { id: 'wedge', name: 'Wedge', full: 90, tierDistanceBonus: 5, enabled: true, allowedLies: ['tee', 'fairway', 'rough', 'bunker', 'trees'] },
-      // Variant (off by default): short, straight escape shot. Fixed fan, not upgradeable.
-      { id: 'punch', name: 'Punch', full: 40, tierDistanceBonus: 0, enabled: false, allowedLies: ['rough', 'trees'], fixedFan: [-3, 0, 0, 0, 0, 3] },
+      { id: 'driver', name: 'Driver', short: 'DR', kind: 'driver', full: 250, powers: true, allowedLies: ['tee'] },
+      { id: 'w3', name: '3 Wood', short: '3W', kind: 'wood', full: 220, allowedLies: ['tee', 'fairway', 'rough'] },
+      { id: 'w5', name: '5 Wood', short: '5W', kind: 'wood', full: 200, allowedLies: ['tee', 'fairway', 'rough'] },
+      { id: 'i4', name: '4 Iron', short: '4i', kind: 'iron', full: 180, allowedLies: ['tee', 'fairway', 'rough', 'trees'] },
+      { id: 'i5', name: '5 Iron', short: '5i', kind: 'iron', full: 170, allowedLies: ['tee', 'fairway', 'rough', 'trees'] },
+      { id: 'i6', name: '6 Iron', short: '6i', kind: 'iron', full: 160, allowedLies: ['tee', 'fairway', 'rough', 'trees'] },
+      { id: 'i7', name: '7 Iron', short: '7i', kind: 'iron', full: 150, allowedLies: ['tee', 'fairway', 'rough', 'trees'] },
+      { id: 'i8', name: '8 Iron', short: '8i', kind: 'iron', full: 140, allowedLies: ['tee', 'fairway', 'rough', 'trees'] },
+      { id: 'i9', name: '9 Iron', short: '9i', kind: 'iron', full: 130, allowedLies: ['tee', 'fairway', 'rough', 'bunker', 'trees'] },
+      { id: 'pw', name: 'Pitching Wedge', short: 'PW', kind: 'wedge', full: 115, allowedLies: ['tee', 'fairway', 'rough', 'bunker', 'trees'] },
+      { id: 'sw', name: 'Sand Wedge', short: 'SW', kind: 'wedge', full: 90, allowedLies: ['tee', 'fairway', 'rough', 'bunker', 'trees'] },
+      { id: 'lw', name: 'Lob Wedge', short: 'LW', kind: 'wedge', full: 40, allowedLies: ['tee', 'fairway', 'rough', 'bunker', 'trees'] },
     ],
-    // Tiers 1-5: each upgrade narrows the fan (accuracy) and adds tierDistanceBonus yards per tier above 1.
+    // Shared fan, read through each card's direction strip. Upgrades turn wide into slight and slight into straight.
     fans: {
       1: [-15, -6, 0, 0, 6, 15],
-      2: [-12, -5, 0, 0, 5, 12],
-      3: [-9, -4, 0, 0, 4, 9],
-      4: [-6, -2, 0, 0, 2, 6],
-      5: [-4, 0, 0, 0, 0, 4],
+      2: [-15, -6, 0, 0, 6, 15],
+      3: [-6, -6, 0, 0, 6, 6],
+      4: [-6, -6, 0, 0, 6, 6],
+      5: [-6, 0, 0, 0, 0, 6],
     },
     // Ring putting on flat green tiles. The ring the ball is in sets the putt.
     // SAFE: small chance to hole, a miss leaves the ball in ring 1.
@@ -162,26 +165,36 @@
   // ----------------------------------------------------------------- rules
   const roundStep = (v, s) => (s > 0 ? Math.round(v / s) * s : v);
   const getClub = (cfg, id) => cfg.clubs.find((c) => c.id === id);
-  const maxPower = (cfg, lie) => (cfg.lieMaxPower && cfg.lieMaxPower[lie] != null ? cfg.lieMaxPower[lie] : 1);
-  const powersFor = (cfg, lie) => cfg.powerLevels.filter((p) => p <= maxPower(cfg, lie) + 1e-9);
-  function zoneOf(cfg, pips) {
-    return cfg.distanceZones.find((z) => pips >= z.from && pips <= z.to) || { mult: 1, label: '?' };
+  // ---- v2 distance: club mark ± one notch, chosen by the card's distance strip
+  const ZONE_LABELS = ['Short', 'On target', 'Long'];
+  const maxPower = () => 1; // v2: no power caps by lie
+  const powersFor = (cfg, lie, club) => (club && club.powers ? cfg.powerLevels.slice() : [1]);
+  function zonesFor(cfg, tier) {
+    const [a, b] = cfg.tierStrips[Math.min(5, tier || 1) - 1];
+    return [{ idx: 0, from: 2, to: a, label: 'Short' }, { idx: 1, from: a + 1, to: b - 1, label: 'On target' }, { idx: 2, from: b, to: 12, label: 'Long' }];
   }
-  const clubFull = (club, tier) => club.full + ((tier || 1) - 1) * (club.tierDistanceBonus || 0);
+  function zoneFor(cfg, pips, tier, lie) {
+    const zs = zonesFor(cfg, tier), raw = zs.find((z) => pips >= z.from && pips <= z.to) || zs[1];
+    const drop = (cfg.lieDrop && cfg.lieDrop[lie]) || 0, idx = Math.max(0, raw.idx - drop);
+    return { idx, raw: raw.idx, drop, from: raw.from, to: raw.to, label: ZONE_LABELS[idx] };
+  }
+  const zoneOf = (cfg, pips) => zoneFor(cfg, pips, 1, 'fairway');
+  const baseDistance = (cfg, club, power) => (club.powers ? roundStep(club.full * (power || 1), 5) : club.full);
+  const clubFull = (club) => club.full;
   const clubAllowed = (club, lie) => club.enabled !== false && club.allowedLies.includes(lie);
   const allowedClubs = (cfg, lie) => cfg.clubs.filter((c) => clubAllowed(c, lie));
-  const isTierable = (club) => !club.fixedFan;
-  // lie is accepted for API compatibility; lies only cap power now.
+  const isTierable = () => true;
   function clubDistance(cfg, club, pips, power, lie, tier) {
-    return Math.max(0, roundStep(clubFull(club, tier) * power * zoneOf(cfg, pips).mult, cfg.rulerStepYd));
+    const z = zoneFor(cfg, pips, tier, lie);
+    return Math.max(0, baseDistance(cfg, club, power) + (z.idx - 1) * cfg.notchYd);
   }
-  const fanFor = (cfg, club, tier) => club.fixedFan || cfg.fans[tier || 1];
+  const fanFor = (cfg, club, tier) => cfg.fans[Math.min(5, tier || 1)];
   // Same formula as clubDistance, but returns every intermediate number (for explaining a shot).
   function shotCalc(cfg, club, pips, power, lie, tier) {
-    const zone = zoneOf(cfg, pips), full = clubFull(club, tier);
-    const raw = full * power * zone.mult;
-    return { full, base: club.full, bonus: full - club.full, tier: tier || 1, pips, power, zone, lie, raw, step: cfg.rulerStepYd, rounded: Math.max(0, roundStep(raw, cfg.rulerStepYd)) };
+    const zone = zoneFor(cfg, pips, tier, lie), base = baseDistance(cfg, club, power);
+    return { base, full: base, bonus: 0, tier: tier || 1, pips, power: club.powers ? power : 1, zone, lie, notch: cfg.notchYd, raw: base, step: cfg.notchYd, rounded: Math.max(0, base + (zone.idx - 1) * cfg.notchYd) };
   }
+
 
   const SUM_PROBS = [];
   for (let s = 2; s <= 12; s++) SUM_PROBS.push({ sum: s, p: (6 - Math.abs(s - 7)) / 36 });
@@ -344,7 +357,7 @@
     } else {
       const club = getClub(cfg, decision.club);
       if (!club || !clubAllowed(club, state.lie)) throw new Error(`${decision.club} not allowed from ${state.lie}`);
-      if (decision.power > maxPower(cfg, state.lie) + 1e-9) throw new Error(`max ${Math.round(maxPower(cfg, state.lie) * 100)}% power from ${state.lie}`);
+      if (!club.powers) decision = Object.assign({}, decision, { power: 1 });
       const tier = isTierable(club) ? tiers[club.id] || 1 : 1;
       const fan = fanFor(cfg, club, tier);
       r = flyShot(H, cfg, state, club.id, decision.power, decision.aim, tier, sum, fan[dice.dir - 1]);
@@ -424,7 +437,7 @@
     const d = dist(state, H.pin);
     if (profile.type === 'beginner') {
       let best = null;
-      for (const c of clubs) for (const p of powersFor(cfg, state.lie)) {
+      for (const c of clubs) for (const p of powersFor(cfg, state.lie, c)) {
         const avg = clubDistance(cfg, c, 7, p, state.lie, isTierable(c) ? tiers[c.id] || 1 : 1);
         const err = Math.abs(avg - d);
         if (!best || err < best.err) best = { club: c.id, power: p, err };
@@ -440,7 +453,7 @@
     for (const off of AIM_OFFSETS) {
       const a = base + (off * Math.PI) / 180;
       const aim = { x: state.x + Math.cos(a) * L, y: state.y + Math.sin(a) * L, off };
-      for (const c of clubs) for (const p of powersFor(cfg, state.lie)) {
+      for (const c of clubs) for (const p of powersFor(cfg, state.lie, c)) {
         const ev = evalDecision(H, cfg, state, c, p, aim, tiers, ctx);
         const score = ev.mean + profile.lambda * ev.sd;
         const cand = { club: c.id, power: p, aim, mean: ev.mean, sd: ev.sd, score };
@@ -708,7 +721,7 @@
   root.Engine = {
     DEFAULT_CONFIG, MAX_TIER, shotCalc, clone, mulberry32, d6, dist, roundStep,
     prepHole, prepShape, inShape, lieAt, parOf, setLieMode,
-    getClub, maxPower, powersFor, zoneOf, clubFull, allowedClubs, clubAllowed, isTierable, clubDistance, fanFor, faceGroups, SUM_PROBS,
+    getClub, maxPower, powersFor, zoneOf, zoneFor, zonesFor, baseDistance, ZONE_LABELS, clubFull, allowedClubs, clubAllowed, isTierable, clubDistance, fanFor, faceGroups, SUM_PROBS,
     flyShot, playShot, startState,
     placeCoins, coinAt, GREEN_TILES, getTile, tileParts, tileCup, ringOf, puttTarget, resolvePutt, ringValues, pAtLeast, decidePutt,
     botContext, evalDecision, decide, PROFILES, shotType,
