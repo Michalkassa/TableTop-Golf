@@ -5,12 +5,14 @@
 
   // ---------------------------------------------------------------- config
   const DEFAULT_CONFIG = {
-    version: '2.2',
+    version: '2.3',
     board: { w: 340, h: 460 },
     rulerStepYd: 5,
     // CLUB SYSTEM v2. Each club hits one fixed distance; only the Driver has power levels.
     powerLevels: [1, 0.75, 0.5, 0.25], // Driver only
-    notchYd: 10,                        // a SHORT result is one notch before the club's mark, LONG one notch past
+    notchYd: 10,
+    // Upgrades add a lot of distance: a club hits this share of its listed distance at tier 1..5.
+    tierDistance: [0.75, 0.875, 1, 1.125, 1.25],                        // a SHORT result is one notch before the club's mark, LONG one notch past
     // Distance strip per tier: [short if 2d6 <= a, long if 2d6 >= b], on target in between. Upgrades widen "on target".
     tierStrips: [[4, 10], [3, 11], [3, 11], [2, 12], [2, 12]],
     // Lie penalty: the result drops this many steps (long -> on target -> short).
@@ -29,14 +31,15 @@
       { id: 'sw', name: 'Sand Wedge', short: 'SW', kind: 'wedge', full: 90, allowedLies: ['tee', 'fairway', 'rough', 'bunker', 'trees'] },
       { id: 'lw', name: 'Lob Wedge', short: 'LW', kind: 'wedge', full: 40, allowedLies: ['tee', 'fairway', 'rough', 'bunker', 'trees'] },
     ],
-    // Direction is a 2d6 roll too (two red dice). fans[tier] = angle for red totals 2..12 (11 entries).
-    // Bell curve: most rolls go straight. Upgrades widen the straight band and remove wide misses.
+    // Direction is a 2d6 roll (two red dice). fans[tier] = angle for red totals 2..12.
+    // Lines: straight 0, slight 6, wide 14, very wide 24. Bronze is wild (straight only on a 7);
+    // every upgrade tightens it (Diamond: straight on 4-10, slight otherwise).
     fans: {
-      1: [-15, -6, -6, 0, 0, 0, 0, 0, 6, 6, 15],
-      2: [-15, -6, -6, 0, 0, 0, 0, 0, 6, 6, 15],
-      3: [-6, -6, 0, 0, 0, 0, 0, 0, 0, 6, 6],
-      4: [-6, -6, 0, 0, 0, 0, 0, 0, 0, 6, 6],
-      5: [-6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6],
+      1: [-24, -14, -14, -6, -6, 0, 6, 6, 14, 14, 24],
+      2: [-24, -14, -6, -6, -6, 0, 6, 6, 6, 14, 24],
+      3: [-14, -6, -6, -6, 0, 0, 0, 6, 6, 6, 14],
+      4: [-14, -6, -6, 0, 0, 0, 0, 0, 6, 6, 14],
+      5: [-6, -6, 0, 0, 0, 0, 0, 0, 0, 6, 6],
     },
     // Ring putting on flat green tiles. The ring the ball is in sets the putt.
     // SAFE: small chance to hole, a miss leaves the ball in ring 1.
@@ -180,19 +183,20 @@
     return { idx, raw: raw.idx, drop, from: raw.from, to: raw.to, label: ZONE_LABELS[idx] };
   }
   const zoneOf = (cfg, pips) => zoneFor(cfg, pips, 1, 'fairway');
-  const baseDistance = (cfg, club, power) => (club.powers ? roundStep(club.full * (power || 1), 5) : club.full);
+  const tierMult = (cfg, tier) => (cfg.tierDistance ? cfg.tierDistance[Math.min(5, tier || 1) - 1] : 1);
+  const baseDistance = (cfg, club, power, tier) => roundStep(club.full * tierMult(cfg, tier) * (club.powers ? power || 1 : 1), 5);
   const clubFull = (club) => club.full;
   const clubAllowed = (club, lie) => club.enabled !== false && club.allowedLies.includes(lie);
   const allowedClubs = (cfg, lie) => cfg.clubs.filter((c) => clubAllowed(c, lie));
   const isTierable = () => true;
   function clubDistance(cfg, club, pips, power, lie, tier) {
     const z = zoneFor(cfg, pips, tier, lie);
-    return Math.max(0, baseDistance(cfg, club, power) + (z.idx - 1) * cfg.notchYd);
+    return Math.max(0, baseDistance(cfg, club, power, tier) + (z.idx - 1) * cfg.notchYd);
   }
   const fanFor = (cfg, club, tier) => cfg.fans[Math.min(5, tier || 1)];
   // Same formula as clubDistance, but returns every intermediate number (for explaining a shot).
   function shotCalc(cfg, club, pips, power, lie, tier) {
-    const zone = zoneFor(cfg, pips, tier, lie), base = baseDistance(cfg, club, power);
+    const zone = zoneFor(cfg, pips, tier, lie), base = baseDistance(cfg, club, power, tier);
     return { base, full: base, bonus: 0, tier: tier || 1, pips, power: club.powers ? power : 1, zone, lie, notch: cfg.notchYd, raw: base, step: cfg.notchYd, rounded: Math.max(0, base + (zone.idx - 1) * cfg.notchYd) };
   }
 
@@ -725,7 +729,7 @@
   root.Engine = {
     DEFAULT_CONFIG, MAX_TIER, shotCalc, clone, mulberry32, d6, dist, roundStep,
     prepHole, prepShape, inShape, lieAt, parOf, setLieMode,
-    getClub, maxPower, powersFor, zoneOf, zoneFor, zonesFor, baseDistance, ZONE_LABELS, clubFull, allowedClubs, clubAllowed, isTierable, clubDistance, fanFor, faceGroups, SUM_PROBS,
+    getClub, maxPower, powersFor, zoneOf, zoneFor, zonesFor, baseDistance, tierMult, dirKind: (a) => (a === 0 ? 'straight' : Math.abs(a) <= 8 ? 'slight' : Math.abs(a) <= 16 ? 'wide' : 'verywide'), ZONE_LABELS, clubFull, allowedClubs, clubAllowed, isTierable, clubDistance, fanFor, faceGroups, SUM_PROBS,
     flyShot, playShot, startState,
     placeCoins, coinAt, GREEN_TILES, getTile, tileParts, tileCup, ringOf, puttTarget, resolvePutt, ringValues, pAtLeast, decidePutt,
     botContext, evalDecision, decide, PROFILES, shotType,

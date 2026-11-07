@@ -4,7 +4,8 @@ const E = globalThis.Engine;
 const cfg = E.clone(E.DEFAULT_CONFIG);
 let fails = 0;
 const ok = (cond, msg) => { console.log((cond ? '  ok   ' : '  FAIL ') + msg); if (!cond) fails++; };
-const tiers = Object.fromEntries(cfg.clubs.map((c) => [c.id, 1]).concat([['putter', 1]]));
+// rule tests use tier 3 (100% distance, straight on 6-8); tier effects are tested separately
+const tiers = Object.fromEntries(cfg.clubs.map((c) => [c.id, 3]).concat([['putter', 1]]));
 
 const mk = (shapes) => E.prepHole({ board: { w: 340, h: 460 }, shapes, parOverride: null });
 const sh = (kind, cx, cy, rx, ry, rotation = 0) => ({ id: kind + cx, kind, cx, cy, rx, ry, rotation });
@@ -98,22 +99,20 @@ console.log('club system v2');
 {
   const H = mk([sh('tee', 170, 440, 4, 4), sh('pin', 170, 40, 4, 4), sh('green', 170, 40, 20, 15)]);
   const s0 = E.startState(H), i7 = E.getClub(cfg, 'i7'), dr = E.getClub(cfg, 'driver');
-  const D = (club, pips, lie, tier, power) => E.clubDistance(cfg, club, pips, power || 1, lie || 'fairway', tier || 1);
+  const D = (club, pips, lie, tier, power) => E.clubDistance(cfg, club, pips, power || 1, lie || 'fairway', tier || 3);
   ok(cfg.clubs.length === 12 && cfg.clubs.filter((c) => c.powers).map((c) => c.id).join() === 'driver', '12 clubs, only the Driver has power levels');
-  ok(D(i7, 3) === 140 && D(i7, 7) === 150 && D(i7, 11) === 160, '7-iron: short 140 / on target 150 / long 160 (one notch either side)');
-  ok(D(i7, 4, 'fairway', 1) === 140 && D(i7, 4, 'fairway', 2) === 150 && D(i7, 3, 'fairway', 4) === 150, 'upgrades widen on target (2d6 4 is on target from tier 2, 3 from tier 4)');
+  ok(D(i7, 3, 'fairway', 3) === 140 && D(i7, 7) === 150 && D(i7, 11) === 160, '7-iron at tier 3: short 140 / on target 150 / long 160');
+  ok(D(i7, 7, 'fairway', 1) === 115 && D(i7, 7, 'fairway', 5) === 190 && D(dr, 7, 'tee', 1) === 190 && D(dr, 7, 'tee', 5) === 315, 'distance grows with tier: 7-iron 115 -> 190, Driver 190 -> 315 (75% -> 125%)');
+  ok(E.zoneFor(cfg, 4, 1, 'fairway').idx === 0 && E.zoneFor(cfg, 4, 2, 'fairway').idx === 1 && E.zoneFor(cfg, 3, 4, 'fairway').idx === 1, 'upgrades widen on target (2d6 4 from tier 2, 3 from tier 4)');
   ok(D(i7, 7, 'rough') === 140 && D(i7, 11, 'rough') === 150 && D(i7, 11, 'bunker') === 140, 'rough drops one step, bunker two');
-  ok(D(dr, 7, 'tee', 1, 0.5) === 125 && D(dr, 7, 'tee', 1, 0.25) === 65, 'Driver power levels: 50% = 125, 25% = 65');
-  const a = E.playShot(H, cfg, s0, { club: 'i7', power: 0.5, aim: H.pin }, tiers, { d1: 3, d2: 4, dir: 12 });
-  ok(a.result.distance === 150 && a.result.power === 0.5 || a.result.distance === 150, 'non-driver clubs ignore power (always full swing)');
-  const t5 = { ...tiers, i7: 5 };
-  const b = E.playShot(H, cfg, s0, { club: 'i7', power: 1, aim: H.pin }, t5, { d1: 3, d2: 4, dir: 12 });
+  ok(D(dr, 7, 'tee', 3, 0.5) === 125 && D(dr, 7, 'tee', 1, 0.5) === 95, 'Driver power levels scale with tier: 50% = 125 at tier 3, 95 at tier 1');
   const dirAt = (t, v) => E.playShot(H, cfg, s0, { club: 'i7', power: 1, aim: H.pin }, { ...tiers, i7: t }, { d1: 3, d2: 4, dir: v }).result.angle;
-  ok(a.result.angle === 15 && b.result.angle === 6 && dirAt(5, 11) === 0 && dirAt(1, 11) === 6 && dirAt(1, 4) === -6 && dirAt(1, 2) === -15 && dirAt(3, 4) === 0, 'direction by red 2d6: T1 12 wide (+15), 10-11 slight, 5-9 straight; T5 12 slight, 3-11 straight');
-  const fg = E.faceGroups(cfg.fans[1]), pStraight = fg.find((g) => g.angle === 0).p;
-  ok(Math.abs(pStraight - 24 / 36) < 1e-9 && Math.abs(E.faceGroups(cfg.fans[5]).find((g) => g.angle === 0).p - 34 / 36) < 1e-9, 'straight is 67% at tier 1 and 94% at tier 5');
-  ok(b.result.distance === a.result.distance, 'upgrades never add distance');
-  ok(a.result.calc.zone.label === 'On target' && a.result.faces.join() === '12', 'shot carries its zone and direction totals');
+  ok(dirAt(1, 7) === 0 && dirAt(1, 6) === -6 && dirAt(1, 4) === -14 && dirAt(1, 12) === 24 && dirAt(5, 4) === 0 && dirAt(5, 12) === 6, 'direction: Bronze straight only on 7, very wide on 2/12; Diamond straight 4-10, never wider than slight');
+  const pS = (t) => E.faceGroups(cfg.fans[t]).filter((g) => g.angle === 0).reduce((a, g) => a + g.p, 0);
+  ok([1, 2, 3, 4, 5].map((t) => Math.round(pS(t) * 100)).join() === '17,17,44,67,83', `straight chance by tier: ${[1, 2, 3, 4, 5].map((t) => Math.round(pS(t) * 100) + '%').join(' / ')}`);
+  const a = E.playShot(H, cfg, s0, { club: 'i7', power: 0.5, aim: H.pin }, tiers, { d1: 3, d2: 4, dir: 7 });
+  ok(a.result.distance === 150, 'non-driver clubs ignore power (always full swing)');
+  ok(a.result.calc.zone.label === 'On target' && a.result.faces.join() === '6,7,8', 'shot carries its zone and direction totals');
   ok(E.allowedClubs(cfg, 'bunker').map((c) => c.id).join() === 'i9,pw,sw,lw', 'from a bunker: 9-iron and wedges only');
 }
 

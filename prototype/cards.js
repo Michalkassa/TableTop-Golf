@@ -148,7 +148,7 @@
   const FACE = { 1: '#f1e4d2', 2: '#e9eef3', 3: '#fbefc6', 4: '#dcf1e2', 5: '#ece6fb' };
   const TIERCOL = { 1: '#b8753a', 2: '#8a9aac', 3: '#d9a21a', 4: '#2f9e5c', 5: '#7d63e8' };
   const KINDCOL = { driver: '#3150a8', wood: '#9a5a26', iron: '#56616e', wedge: '#c4452f', putter: '#2a8a45' };
-  const ZONE = ['#4f7fe0', '#ffffff', '#e05050'], DIR = { straight: '#46b86a', slight: '#f2c230', wide: '#f07f3a' };
+  const ZONE = ['#4f7fe0', '#ffffff', '#e05050'], DIR = { straight: '#46b86a', slight: '#f2c230', wide: '#f07f3a', verywide: '#c83a3a' };
   const cache = new Map();
 
   function cardBase(W, H, face) {
@@ -198,8 +198,9 @@
       o.dir.forEach((k, i) => {
         const x = 4 + i * 8, v = i + 2;
         px.rect(x, 95, 9, 11, INK); px.rect(x + 1, 96, 7, 9, DIR[k]);
-        if (v >= 10) { px.rect(x + 2, 98, 1, 5, INK); text(px, v % 10, x + 4, 98, INK, F3); }
-        else text(px, v, x + 3, 98, INK, F3);
+        const ink = k === 'verywide' ? '#ffffff' : INK;
+        if (v >= 10) { px.rect(x + 2, 98, 1, 5, ink); text(px, v % 10, x + 4, 98, ink, F3); }
+        else text(px, v, x + 3, 98, ink, F3);
       });
     }
     const url = px.url();

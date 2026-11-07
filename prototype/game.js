@@ -54,7 +54,8 @@
   const kindOf = (id) => (id === 'putter' ? 'putter' : (E.getClub(cfg, id) || {}).kind || 'iron');
   const clubCol = (id) => KINDCOL[kindOf(id)];
   const ZFILL = ['#3b5dc9', '#f4f4f4', '#b13e53'], ZTXT = ['#73b7f2', '#f4f4f4', '#ff8a80'];
-  const dirCol = (a, outer) => (a === 0 ? '#38b764' : Math.abs(a) < Math.max(outer, 7) ? '#ffcd75' : '#ef7d57');
+  const DIRCOLS = { straight: '#38b764', slight: '#ffcd75', wide: '#ef7d57', verywide: '#d43a3a' };
+  const dirCol = (a) => DIRCOLS[E.dirKind(a)];
   const TIERCOL = ['#a46422', '#94b0c2', '#ffcd75', '#38b764', '#73eff7'];
   const TIERNAME = ['BRONZE', 'SILVER', 'GOLD', 'EMERALD', 'DIAMOND'];
   const PCOL = ['#e43b44', '#3b5dc9', '#ffcd75', '#b55088'];
@@ -77,7 +78,7 @@
     { id: 'wizard', name: 'WEDGE WIZARD', type: 'joker', price: 5, col: '#b55088', text: 'All wedges play one tier higher.' },
     { id: 'bighitter', name: 'BIG HITTER', type: 'joker', price: 5, col: '#73b7f2', text: 'Driver and woods play one tier higher.' },
     { id: 'laser', name: 'LASER PUTTER', type: 'joker', price: 5, col: '#e43b44', text: 'RISKY putts need 1 less.' },
-    { id: 'steady', name: 'STEADY HANDS', type: 'joker', price: 4, col: '#f4f4f4', text: 'Never WIDE: wide shots go SLIGHT instead.' },
+    { id: 'steady', name: 'STEADY HANDS', type: 'joker', price: 4, col: '#f4f4f4', text: 'Never wide: wide and very wide shots go SLIGHT.' },
     { id: 'lucky7', name: 'LUCKY SEVEN', type: 'joker', price: 4, col: '#ffcd75', text: 'Roll a 7 on the distance dice: +1 coin.' },
     { id: 'magpie', name: 'MAGPIE', type: 'joker', price: 3, col: '#94b0c2', text: 'Pick up coin tokens from twice as far away.' },
     { id: 'piggy', name: 'PIGGY BANK', type: 'joker', price: 4, col: '#ff9aaa', text: 'After each hole: +1 coin for every 4 you hold (max +3).' },
@@ -122,7 +123,7 @@
     if (hasJ(p, 'roughrider')) c.lieDrop.rough = 0;
     if (hasJ(p, 'sandshark')) c.lieDrop.bunker = 0;
     if (hasJ(p, 'lumberjack')) { c.lieDrop.trees = 0; c.rules.treesBlockLine = false; }
-    if (hasJ(p, 'steady')) for (const t in c.fans) c.fans[t] = c.fans[t].map((a) => (Math.abs(a) >= 15 ? Math.sign(a) * 6 : a));
+    if (hasJ(p, 'steady')) for (const t in c.fans) c.fans[t] = c.fans[t].map((a) => (Math.abs(a) > 8 ? Math.sign(a) * 6 : a));
     if (hasJ(p, 'laser')) c.putting.risky = c.putting.risky.map((t, i) => (i ? t - 1 : t));
     if (hasJ(p, 'magpie')) c.coinTokens.radius *= 2;
     pcfgCache.set(key, c);
@@ -199,7 +200,7 @@
   }
   function botAfterRoll(p, out, dice, opts, compute) {
     if (opts.some((o) => o.id === 'caddie')) {
-      if (Math.abs(out.result.angle) >= 15 || out.result.penalty) return 'caddie'; // wide or in trouble: reroll the red dice
+      if (Math.abs(out.result.angle) > 8 || out.result.penalty) return 'caddie'; // wide or in trouble: reroll the red dice
     }
     if (opts.some((o) => o.id === 'mulligan') && (out.result.penalty || out.result.blocked || (out.result.putt && !out.result.holed && out.result.ring <= 2))) return 'mulligan';
     return 'keep';
@@ -680,7 +681,7 @@
     const drop = (cfg.lieDrop || {})[st.lie] || 0;
     out.push(meterBox(`DISTANCE · ${club.name.toUpperCase()}${club.powers ? ' ' + Math.round(G.ui.power * 100) + '%' : ''}${drop ? ` · ${st.lie.toUpperCase()} −${drop} STEP${drop > 1 ? 'S' : ''}` : ''}`, meterSvg(dcells, dgroups, roll ? arrowFor(dcells, roll.sum, roll.jitter[0], live) : null), 'dist'));
     const fan = E.fanFor(cfg, club, tier), outer = Math.max(...fan.map(Math.abs)) || 1;
-    const acol = (a) => dirCol(a, 15);
+    const acol = (a) => dirCol(a);
     const fcells = layout(SUMS.map((v) => ({ v, p: pSum(v), fill: acol(fan[v - 2]), ink: PAL.ink, label: v })));
     const fgroups = zoneGroups(fcells, (c) => { const a = fan[c.v - 2]; return { k: a, text: a === 0 ? 'STRAIGHT' : `${a > 0 ? '+' : '−'}${Math.abs(a)}°`, color: acol(a) }; });
     out.push(meterBox('DIRECTION · RED DICE', meterSvg(fcells, fgroups, roll ? arrowFor(fcells, roll.dir, roll.jitter[1], live) : null), 'dir'));
@@ -698,8 +699,8 @@
     const club = E.getClub(c, id), fan = E.fanFor(c, club, st), outer = Math.max(...Object.values(c.fans).flat().map(Math.abs));
     return PixelCards.club({
       key: `${id}|${tier}|${st}|${opts.boost ? 1 : 0}|${jk}`, code: club.short.toUpperCase(), kind: club.kind, tier, boost: opts.boost,
-      distance: `${club.full} YD`, dist: SUMS.map((v) => E.zoneFor(c, v, st, 'fairway').idx),
-      dir: fan.map((a) => (a === 0 ? 'straight' : Math.abs(a) >= Math.max(outer, 7) ? 'wide' : 'slight')),
+      distance: `${E.baseDistance(c, club, 1, st)} YD`, dist: SUMS.map((v) => E.zoneFor(c, v, st, 'fairway').idx),
+      dir: fan.map((a) => E.dirKind(a)),
     });
   }
   function cardEl(id, tier, opts) {
@@ -741,8 +742,10 @@
   // The shared bag ruler: one mark per club (the Driver also has power marks). Tap a mark to pick that club.
   // The chosen club shows its short / on target / long ticks.
   function rulerFor(p) {
-    const st = p.st, sel = E.getClub(cfg, G.ui.club), tier = p.tiers[sel.id] || 1;
-    const W = 440, Hh = 112, F = `font-family="'Press Start 2P', monospace"`, maxYd = 270, X = (d) => Math.round(22 + (d / maxYd) * 404);
+    const st = p.st, sel = E.getClub(cfg, G.ui.club), T = ptiers(p), tier = T[sel.id] || 1;
+    const dOf = (c, pw) => E.baseDistance(cfg, c, pw || 1, T[c.id] || 1);
+    const maxYd = Math.max(...cfg.clubs.map((c) => dOf(c))) + 25;
+    const W = 440, Hh = 112, F = `font-family="'Press Start 2P', monospace"`, X = (d) => Math.round(22 + (d / maxYd) * 404);
     const inks = ['#3b5dc9', '#0f101a', '#b13e53'];
     let s = `<svg viewBox="0 0 ${W} ${Hh}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" ${F}>`;
     s += `<rect width="${W}" height="${Hh}" fill="#0f101a"/><rect x="3" y="3" width="${W - 6}" height="${Hh - 6}" fill="#f4f4f4"/>`;
@@ -750,7 +753,7 @@
     for (let yd = 50; yd < maxYd; yd += 50) s += `<rect x="${X(yd)}" y="51" width="1" height="4" fill="#94b0c2"/>`;
     // selected club: short / on target / long ticks
     const ticks = [...new Set([2, 7, 12].map((v) => E.clubDistance(cfg, sel, v, G.ui.power, 'fairway', tier)))];
-    [E.baseDistance(cfg, sel, G.ui.power) - cfg.notchYd, E.baseDistance(cfg, sel, G.ui.power), E.baseDistance(cfg, sel, G.ui.power) + cfg.notchYd].forEach((d, i) => {
+    [dOf(sel, G.ui.power) - cfg.notchYd, dOf(sel, G.ui.power), dOf(sel, G.ui.power) + cfg.notchYd].forEach((d, i) => {
       s += `<rect x="${X(d) - 1}" y="${i === 1 ? 30 : 36}" width="${i === 1 ? 4 : 3}" height="${i === 1 ? 18 : 12}" fill="${inks[i]}"/>`;
     });
     void ticks;
@@ -759,20 +762,20 @@
     if (dr) {
       const ok = E.clubAllowed(dr, st.lie);
       for (const pw of cfg.powerLevels.slice().sort((a, b) => a - b)) {
-        const x = X(E.baseDistance(cfg, dr, pw)), on = sel.id === dr.id && G.ui.power === pw;
+        const x = X(dOf(dr, pw)), on = sel.id === dr.id && G.ui.power === pw;
         s += `<g data-club="${ok ? dr.id : ''}" data-power="${pw}" style="cursor:${ok ? 'pointer' : 'not-allowed'}" opacity="${ok ? 1 : 0.25}">`;
         s += `<rect x="${x - 14}" y="8" width="28" height="16" fill="${on ? '#ffcd75' : KINDCOL.driver}"/><text x="${x}" y="20" text-anchor="middle" font-size="7" fill="${on ? '#0f101a' : '#fff'}">D${Math.round(pw * 100)}</text>`;
         s += `<rect x="${x}" y="24" width="1" height="24" fill="${KINDCOL.driver}"/></g>`;
       }
     }
     // every other club (bottom rows, alternating so labels don't overlap)
-    cfg.clubs.filter((c) => !c.powers && c.enabled !== false).sort((a, b) => a.full - b.full).forEach((c, i) => {
-      const x = X(c.full), ok = E.clubAllowed(c, st.lie), on = sel.id === c.id, y = i % 2 ? 76 : 58;
+    cfg.clubs.filter((c) => !c.powers && c.enabled !== false).sort((a, b) => dOf(a) - dOf(b)).forEach((c, i) => {
+      const x = X(dOf(c)), ok = E.clubAllowed(c, st.lie), on = sel.id === c.id, y = i % 2 ? 76 : 58;
       s += `<g data-club="${ok ? c.id : ''}" style="cursor:${ok ? 'pointer' : 'not-allowed'}" opacity="${ok ? 1 : 0.25}">`;
       s += `<rect x="${x}" y="51" width="1" height="${y - 51}" fill="${KINDCOL[c.kind]}"/>`;
       s += `<rect x="${x - 12}" y="${y}" width="24" height="16" fill="${on ? '#ffcd75' : KINDCOL[c.kind]}"/><text x="${x}" y="${y + 12}" text-anchor="middle" font-size="7" fill="${on ? '#0f101a' : '#fff'}">${c.short}</text></g>`;
     });
-    s += `<text x="${W - 10}" y="${Hh - 8}" text-anchor="end" font-size="7" fill="#566c86">${sel.name.toUpperCase()} ${E.baseDistance(cfg, sel, G.ui.power)}YD · SHORT/LONG ±${cfg.notchYd}</text>`;
+    s += `<text x="${W - 10}" y="${Hh - 8}" text-anchor="end" font-size="7" fill="#566c86">${sel.name.toUpperCase()} ${dOf(sel, G.ui.power)}YD · SHORT/LONG ±${cfg.notchYd}</text>`;
     s += '</svg>';
     const box = h('div', { class: 'svgbox', html: s });
     box.addEventListener('click', (e) => {
@@ -872,8 +875,9 @@
   }
   function clubUpgradeText(id, t) {
     if (id === 'putter') return `RISKY ${inOn(E.puttTarget(cfg, 2, 'risky', t))} from ring 2 · SAFE ${inOn(E.puttTarget(cfg, 2, 'safe', t))}`;
-    const [a, b] = cfg.tierStrips[t - 1], g = E.faceGroups(cfg.fans[t]).find((x) => x.angle === 0), wide = cfg.fans[t].some((x) => Math.abs(x) >= 15);
-    return `On target ${a + 1}-${b - 1} · straight ${g.faces[0]}-${g.faces[g.faces.length - 1]}${wide ? '' : ' · no wide'}`;
+    const club = E.getClub(cfg, id), g = E.faceGroups(cfg.fans[t]).find((x) => x.angle === 0), wide = cfg.fans[t].some((x) => Math.abs(x) > 8);
+    const st = g.faces.length > 1 ? `${g.faces[0]}-${g.faces[g.faces.length - 1]}` : `${g.faces[0]}`;
+    return `${E.baseDistance(cfg, club, 1, t - 1)} → ${E.baseDistance(cfg, club, 1, t)} yd · straight on ${st}${wide ? '' : ' · never wide'}`;
   }
   function renderShop() {
     const p = shopper(), owned = [...p.jokers, ...p.tickets];

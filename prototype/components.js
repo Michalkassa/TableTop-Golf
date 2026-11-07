@@ -83,39 +83,32 @@
     s += `<text transform="translate(${-tail + 6.6} ${f(-top + H / 2)}) rotate(-90)" text-anchor="middle" font-size="3.6" font-weight="800" fill="#fff" letter-spacing="0.5">BAG RULER</text>`;
     s += `<line x1="-4" y1="0" x2="${L - 2}" y2="0" stroke="#111" stroke-width="0.45"/>`;
     for (let x = notch; x < L - 3; x += notch) s += `<line x1="${x}" y1="0" x2="${x}" y2="${x % 50 === 0 ? 2.6 : 1.6}" stroke="#555" stroke-width="0.2"/>`;
-    const dr = cfg.clubs.find((c) => c.powers);
-    if (dr) for (const pw of cfg.powerLevels.slice().sort((a, b) => a - b)) {
-      const x = E.baseDistance(cfg, dr, pw);
-      s += `<line x1="${x}" y1="0" x2="${x}" y2="-7" stroke="${colorOf('driver')}" stroke-width="0.45"/>`;
-      s += `<rect x="${f(x - 5)}" y="-13.5" width="10" height="6.2" rx="1" fill="${colorOf('driver')}"/><text x="${x}" y="-9.1" text-anchor="middle" font-size="2.9" font-weight="800" fill="#fff">D${Math.round(pw * 100)}</text>`;
-    }
-    cfg.clubs.filter((c) => !c.powers && c.enabled !== false).sort((a, b) => a.full - b.full).forEach((c, i) => {
-      const x = c.full, y = i % 2 ? 11 : 4.2, col = colorOf(c.id);
-      s += `<line x1="${x}" y1="0" x2="${x}" y2="${y}" stroke="${col}" stroke-width="0.45"/>`;
-      s += `<rect x="${f(x - 3.8)}" y="${y}" width="7.6" height="5.6" rx="1" fill="${col}"/><text x="${x}" y="${f(y + 4)}" text-anchor="middle" font-size="2.8" font-weight="800" fill="#fff">${c.short}</text>`;
-    });
+    // distances change with the club's tier, so they're printed on the cards; the ruler is plain yardage
+    for (let x = 50; x < L - 3; x += 50) s += `<text x="${x}" y="-3" text-anchor="middle" font-size="3.2" font-weight="800" fill="#333">${x}</text>`;
+    for (let x = 10; x < L - 3; x += 10) if (x % 50) s += `<text x="${x}" y="-2.6" text-anchor="middle" font-size="1.8" fill="#888">${x}</text>`;
     s += `<circle cx="0" cy="0" r="2.2" fill="#fff" stroke="#111" stroke-width="0.35"/><circle cx="0" cy="0" r="0.5" fill="#111"/>`;
     s += `<text x="0" y="-3.2" text-anchor="middle" font-size="1.9" font-weight="700" fill="#111">BALL</text>`;
     const drops = Object.entries(cfg.lieDrop || {}).filter(([, d]) => d).map(([l, d]) => `${SHORTS[l] || l} −${d}`).join('  ·  ');
-    s += `<text x="4" y="${H - top - 3.4}" font-size="2.3" fill="#333"><tspan font-weight="800">SHORT</tspan> = one notch before the club's mark · <tspan font-weight="800">LONG</tspan> = one notch after · from the rough / bunker / trees the result drops steps: ${drops}</text>`;
+    s += `<text x="4" y="${H - top - 3.4}" font-size="2.3" fill="#333"><tspan font-weight="800">SHORT</tspan> = 10 yd less than the card · <tspan font-weight="800">LONG</tspan> = 10 yd more · from the rough / bunker / trees the result drops steps: ${drops}</text>`;
     return { x: -tail, y: -top, w: tail + L, h: H, body: s, name: 'bag-ruler', title: 'Bag ruler (shared)' };
   }
 
   // ------------------------------------------------------- v2: shared fan
   // Five lines, no numbers: the club card says which die faces go WIDE, SLIGHT or STRAIGHT.
-  const DIRCOL = { wide: '#e07a3f', slight: '#e8b630', straight: '#2e9a4f' };
+  const DIRCOL = { verywide: '#c83a3a', wide: '#e07a3f', slight: '#e8b630', straight: '#2e9a4f' };
+  const DIRNAME = { verywide: 'VERY WIDE', wide: 'WIDE', slight: 'SLIGHT', straight: 'STRAIGHT' };
   function sharedFan(cfg) {
     const angles = [...new Set(Object.values(cfg.fans).flat())].sort((a, b) => a - b);
     const outer = Math.max(...angles.map(Math.abs)), R = 105, hub = 16, half = outer + 7;
     const rad = (d) => ((d - 90) * Math.PI) / 180, pt = (d, r) => [f(r * Math.cos(rad(d))), f(r * Math.sin(rad(d)))];
-    const kind = (a) => (a === 0 ? 'straight' : Math.abs(a) >= outer ? 'wide' : 'slight');
+    const kind = (a) => E.dirKind(a);
     let s = '';
     const [ax, ay] = pt(-half, hub), [bx, by] = pt(-half, R), [cx, cy] = pt(half, R), [dx, dy] = pt(half, hub);
     s += `<path d="M ${ax} ${ay} L ${bx} ${by} A ${R} ${R} 0 0 1 ${cx} ${cy} L ${dx} ${dy} Z" fill="#888" fill-opacity="0.06" stroke="#555" stroke-width="0.35"/>`;
     for (const a of angles) {
       const k = kind(a), [x1, y1] = pt(a, hub + 2), [x2, y2] = pt(a, R), [tx, ty] = pt(a, R + 6);
       s += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${DIRCOL[k]}" stroke-width="${a === 0 ? 1.1 : 0.8}"/>`;
-      s += `<text transform="translate(${tx} ${ty}) rotate(${a})" text-anchor="middle" font-size="3" font-weight="800" fill="${DIRCOL[k]}">${k.toUpperCase()}</text>`;
+      s += `<text transform="translate(${tx} ${ty}) rotate(${a})" text-anchor="middle" font-size="2.6" font-weight="800" fill="${DIRCOL[k]}">${DIRNAME[k]}</text>`;
     }
     s += `<circle cx="0" cy="0" r="${hub}" fill="#fff" stroke="#555" stroke-width="0.35"/><text x="0" y="-6" text-anchor="middle" font-size="3.2" font-weight="800" fill="#333">FAN</text>`;
     s += `<text x="0" y="8" text-anchor="middle" font-size="2" fill="#555">centre line on your aim</text>`;
@@ -134,6 +127,8 @@
       <clipPath id="art${uid}"><rect x="4" y="14.5" width="55" height="29" rx="2"/></clipPath></defs>`;
     s += `<rect width="${W}" height="${Hc}" rx="3.5" fill="url(#fr${uid})"/><rect x="2.2" y="2.2" width="${W - 4.4}" height="${Hc - 8.6}" rx="2.4" fill="#fffdf7"/>`;
     s += `<text x="5" y="10.6" font-size="${club.name.length > 9 ? 4.2 : 5.4}" font-weight="800" fill="#1b1b1b">${club.name.toUpperCase()}</text>`;
+    const yd = E.baseDistance(cfg, club, 1, tier);
+    s += `<rect x="38" y="38" width="20" height="7.5" rx="2" fill="#1b1b1b" fill-opacity="0.85"/><text x="48" y="43.6" text-anchor="middle" font-size="4.2" font-weight="800" fill="#fff">${yd} YD</text>`;
     s += `<circle cx="54" cy="8.3" r="4.4" fill="url(#fr${uid})" stroke="#fff" stroke-width="0.6"/><text x="54" y="10.1" text-anchor="middle" font-size="4.8" font-weight="800" fill="#fff">${tier}</text>`;
     s += `<g clip-path="url(#art${uid})"><g transform="translate(4 14.5)">${clubArt(kind === 'driver' ? 'driver' : kind, tier, uid)}</g></g>`;
     s += `<rect x="4" y="14.5" width="55" height="29" rx="2" fill="none" stroke="${T.b}" stroke-width="0.5"/>`;
@@ -148,10 +143,10 @@
     s += `<text x="5" y="66.4" font-size="2.4" font-weight="800" fill="#333" letter-spacing="0.3">DIRECTION · 2 RED DICE</text>`;
     const fan = E.fanFor(cfg, club, tier), outer = Math.max(...Object.values(cfg.fans).flat().map(Math.abs));
     fan.forEach((a, i) => {
-      const k = a === 0 ? 'straight' : Math.abs(a) >= outer ? 'wide' : 'slight', x = 4 + i * 5, v = i + 2;
+      const k = E.dirKind(a), x = 4 + i * 5, v = i + 2;
       s += `<rect x="${x}" y="67.8" width="4.6" height="7" rx="0.6" fill="${DIRCOL[k]}" stroke="#333" stroke-width="0.25"/><text x="${f(x + 2.3)}" y="72.5" text-anchor="middle" font-size="${v >= 10 ? 2.2 : 2.7}" font-weight="800" fill="#fff">${v}</text>`;
     });
-    s += `<text x="5" y="78.4" font-size="2.1" fill="${DIRCOL.wide}" font-weight="800">WIDE</text><text x="31.5" y="78.4" text-anchor="middle" font-size="2.1" fill="${DIRCOL.straight}" font-weight="800">STRAIGHT</text><text x="58" y="78.4" text-anchor="end" font-size="2.1" fill="${DIRCOL.wide}" font-weight="800">WIDE</text>`;
+    s += `<text x="5" y="78.4" font-size="2.1" fill="${DIRCOL.verywide}" font-weight="800">WIDE</text><text x="31.5" y="78.4" text-anchor="middle" font-size="2.1" fill="${DIRCOL.straight}" font-weight="800">STRAIGHT</text><text x="58" y="78.4" text-anchor="end" font-size="2.1" fill="${DIRCOL.verywide}" font-weight="800">WIDE</text>`;
     s += `<text x="31.5" y="${Hc - 2.6}" text-anchor="middle" font-size="2.3" font-weight="800" fill="#fff" letter-spacing="0.6">${T.name.toUpperCase()}${club.powers ? ' · 4 POWER MARKS' : ''}</text>`;
     return { x: 0, y: 0, w: W, h: Hc, body: s, name: `${id}-t${tier}-card`, title: `${club.name} T${tier} card` };
   }

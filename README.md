@@ -51,8 +51,8 @@ Non-goals for v1: online multiplayer, accounts, 3D graphics.
 | Shot randomness | **2d6 distance zone + 1d6 direction** (as in 2.3) |
 | Clubs | **A full bag of 12 cards, from Driver to Sand Wedge plus Putter** (see 2.0). Each club hits one fixed distance |
 | Power | **Only the Driver has power levels** (25 / 50 / 75 / 100%). Every other club is always a full swing |
-| Upgrades | **Upgrading a club improves its odds**, not its distance: more of the dice results land on target and go straight |
-| Simplicity | **As few numbers on cards as possible.** It must play smoothly as a real board game; distances live on one shared ruler, odds are shown as coloured strips |
+| Upgrades | **Upgrading a club makes it longer and more accurate**: Bronze hits 75% of the club's base distance, Diamond 125%, and more of the dice results land on target and go straight |
+| Simplicity | **As few numbers on cards as possible.** It must play smoothly as a real board game; each card prints one distance, odds are shown as coloured strips |
 | Lie penalty | v1: a power cap (rough max 75%, bunker and trees max 50%). v2 needs a new rule because most clubs have no power levels (see 2.0, open questions) |
 | Roll after landing | **None**: the ball stops dead where it is measured |
 | Trees | **Block the shot line**: if the line crosses trees, the ball stops at the tree edge (see 2.3) |
@@ -86,33 +86,33 @@ Non-goals for v1: online multiplayer, accounts, 3D graphics.
 | Putter | green only | rings (2.7) |
 
 - **Choosing a club is the distance decision.** Instead of picking a power level, you pick the club whose distance fits the shot. Only the Driver keeps a power choice, for tee shots that need to be shorter.
-- **Distances are not printed on the cards.** One **shared bag ruler** (1 mm = 1 yd) has a named mark for every club (and D25 / D50 / D75 / D100 for the Driver). The ruler has notches every 10 yd: a **short** result is one notch before the club's mark, and a **long** result is one notch past it (proposed).
+- **Each card prints its distance** (for example "150 YD"), because it changes with the tier. One **shared bag ruler** (1 mm = 1 yd) is a plain yardage ruler with notches every 10 yd: a **short** result is 10 yd less than the card, a **long** result 10 yd more. The Driver's power levels are 25 / 50 / 75 / 100% of its card distance.
 
 **One shot**
 1. Pick a club card (the Driver also picks a power level).
 2. Aim the shared fan, then roll **four dice** together: two white (distance) and two red (direction).
 3. **Distance:** look up the white 2d6 total on the card's **distance strip**: short, on target or long. Then measure on the bag ruler.
-4. **Direction:** look up the red 2d6 total on the card's **direction strip**: straight, slight or wide. Then use that line on the shared fan.
+4. **Direction:** look up the red 2d6 total on the card's **direction strip**: straight, slight, wide or very wide. Then use that line on the shared fan.
 
 **What a card shows (and nothing else)**
 - The club's name and pixel-art picture.
 - Its tier: the frame colour (Bronze → Diamond) and pips.
 - A **distance strip**: 11 small boxes for the 2d6 totals 2–12, coloured **short / on target / long**.
-- A **direction strip**: the red 2d6 totals 2–12, coloured **straight / slight / wide**. Both strips read the same way, and both follow the 2d6 bell curve.
+- A **direction strip**: the red 2d6 totals 2–12, coloured **straight / slight / wide / very wide**. Both strips read the same way, and both follow the 2d6 bell curve.
 
-**The shared fan** has just 5 lines: wide left, slight left, straight, slight right, wide right (proposed ±15° and ±6°). It's the same for every club; only the cards change which die faces go where.
+**The shared fan** has 7 lines: very wide, wide and slight on each side plus straight (±24°, ±14°, ±6°, 0°). It's the same for every club; only the cards change which dice totals go where.
 
-**Upgrades improve the odds** (proposed). Each upgrade swaps in the next tier's card for that club, and alternates between better distance and better direction:
+**Upgrades add distance and tighten the shot.** Each upgrade swaps in the next tier's card for that club. Starting clubs are deliberately wild: a Bronze club goes straight only 1 time in 6.
 
-| Tier | Distance strip (white 2d6): short / on target / long | Direction strip (red 2d6): wide / slight / straight |
-|---|---|---|
-| 1 Bronze | 2–4 / **5–9** / 10–12 (on target 67%) | 2, 12 wide · 3–4, 10–11 slight · **5–9 straight** (67%) |
-| 2 Silver | 2–3 / **4–10** / 11–12 (83%) | same as tier 1 |
-| 3 Gold | same as tier 2 | no wide: 2–3, 11–12 slight · **4–10 straight** (83%) |
-| 4 Emerald | 2 / **3–11** / 12 (94%) | same as tier 3 |
-| 5 Diamond | same as tier 4 | 2, 12 slight · **3–11 straight** (94%) |
+| Tier | Distance (of base) | Distance strip (white 2d6): short / on target / long | Direction strip (red 2d6) | Straight |
+|---|---|---|---|---|
+| 1 Bronze | **75%** | 2–4 / **5–9** / 10–12 (67%) | 2, 12 very wide · 3–4, 10–11 wide · 5–6, 8–9 slight · **7 straight** | 17% |
+| 2 Silver | 87.5% | 2–3 / **4–10** / 11–12 (83%) | 2, 12 very wide · 3, 11 wide · 4–6, 8–10 slight · **7 straight** | 17% |
+| 3 Gold | **100%** | same as tier 2 | 2, 12 wide · 3–5, 9–11 slight · **6–8 straight** | 44% |
+| 4 Emerald | 112.5% | 2 / **3–11** / 12 (94%) | 2, 12 wide · 3–4, 10–11 slight · **5–9 straight** | 67% |
+| 5 Diamond | **125%** | same as tier 4 | 2–3, 11–12 slight · **4–10 straight** (never wide) | 83% |
 
-- Each tier makes good results **more likely**; the club never hits further.
+- Example: the 7-iron goes 115 yd at Bronze, 150 at Gold and 190 at Diamond; the Driver goes 190 → 315.
 - The **shop** sells next-tier cards (Balatro-style, as in the game prototype).
 - A full set is 12 clubs × 5 tiers = **60 club cards**, plus the putter cards.
 
@@ -133,7 +133,7 @@ Non-goals for v1: online multiplayer, accounts, 3D graphics.
 - **Engine:** all 12 clubs, Driver-only power, tier strips, lie drops; tests cover every rule.
 - **Game:** a 13-card hand, the shared bag ruler (tap a club's mark), and meters that include the lie drop.
 - **Design lab:** editors for the tier strips, the notch and the lie drops.
-- **Printable kit:** the shared bag ruler, the shared 5-line fan, one card per club per tier (no distance numbers), and a two-column player board.
+- **Printable kit:** the shared yardage ruler, the shared 7-line fan, one card per club per tier (each prints its distance), and a two-column player board.
 
 **Still open:**
 - **Very short shots:** whether a chip rule is still needed under 30 yd.
@@ -293,7 +293,7 @@ Special cards bought in the pro shop. **Jokers** are passive and work every shot
 | Wedge Wizard | joker | 5 | All wedges play one tier higher |
 | Big Hitter | joker | 5 | Driver and woods play one tier higher |
 | Laser Putter | joker | 5 | RISKY putts need 1 less |
-| Steady Hands | joker | 4 | Never WIDE: wide shots go SLIGHT instead |
+| Steady Hands | joker | 4 | Never wide: wide and very wide shots go SLIGHT instead |
 | Lucky Seven | joker | 4 | Roll a 7 on the distance dice: +1 coin |
 | Magpie | joker | 3 | Pick up coin tokens from twice as far away |
 | Piggy Bank | joker | 4 | After each hole: +1 coin for every 4 you hold (max +3) |
