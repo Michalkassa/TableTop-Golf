@@ -6,7 +6,9 @@ A web app for designing, playing, simulating and **optimizing** a tabletop golf 
 - **Look:** the course is drawn at low resolution and scaled up with hard pixel edges, with pixel fonts, square pixel balls and dice.
 - **Your bag** is a hand of pixel-art club cards at the bottom of the screen, Balatro-style. Each card shows its tier's frame colour (Bronze → Diamond), distance and accuracy. Tap a card to pick that club; cards you can't use from your lie go dark.
 - **Gamble meters:** next to the tumbling dice, each roll has a pixel number line. Every outcome is as wide as its chance, so 7 is wide and 2 or 12 are slivers, coloured short / middle / long. Direction uses the six faces with their angles, and putting shows the IN numbers against the misses. Once the dice land, a gold arrow points at the result.
-- **Pro shop (Balatro-style):** after each hole, every human player is offered 3 upgrade cards, sometimes with one on SALE, and can REROLL for $1. Buying a card upgrades that club in your hand. CPU players shop on their own.
+- **Club cards:** the tier shows as the card's background (Bronze, Silver, Gold, Emerald or Diamond pixel stripes), with no border and no label. The distance strip shows the 2d6 totals 2–12 and the direction strip the faces 1–6, numbered inside each coloured box. A ★ means a joker is boosting that club.
+- **Pro shop (Balatro-style):** after each hole, every human player gets 3 club upgrade cards (sometimes one on SALE) and 2 **jokers or tickets**. They can REROLL for $1, and sell jokers back for half price. CPU players shop on their own.
+- **Jokers** (passive, 3 slots) and **tickets** (one use, 2 slots), shown next to your hand. See 2.9.
 - **Camera:** it follows the ball. It frames your ball, the flag and your shot's reach, so it tightens as you get closer, and it zooms onto the green for putts.
 - **Long shots:** pick a club (tap its card or its mark on the bag ruler; the Driver also has 25–100% power marks), tap the board to aim, then roll. The dice tumble, the rolled fan line lights up, and the ball flies there. (`clubs-v2` branch; `main` still uses the v1 power ruler.)
 - **Greens:** the board zooms in and you pick SAFE or RISKY on your putter card.
@@ -260,13 +262,38 @@ A long shot that finishes within `cupRadius` (1 yd) of the cup is holed.
 - Every club, including the Putter, has a tier from **1 to 5**; all start at tier 1.
 - **Each upgrade improves both distance and accuracy**: the club gains its `tierDistanceBonus` (yards per tier above 1, see 2.4) and uses the next, narrower fan (2.6). Putter upgrades alternate: RISKY numbers 1 lower at tiers 2 and 4, SAFE numbers at tiers 3 and 5 (2.7).
 - Coins come from two sources:
-  - **Score:** birdie or better 3, par 2, bogey 1, worse 0.
+  - **Score:** birdie or better 5, par 3, bogey 2, worse 1 (raised so players can afford jokers and rerolls, see 2.9).
   - **Coin tokens on the course:** each hole has **3 tokens** (3 cm discs) placed just outside water, bunkers or trees, or near the board edge, never on the green. A token is worth **2** if it sits next to water or the edge, otherwise **1**. If your ball **stops on a token** (within 15 yd), you take it; first come, first served.
   - **Balance:** tokens add about 0.46 coins per player per hole on top of about 2 from score, roughly +25%. Bots that chase them lose about 0.2 strokes per hole, so going for a coin is a real gamble. A 10 yd radius gave only 0.2 coins. A "shot line touches the token" rule gave as many coins as 15 yd but cost nothing, so it wasn't a gamble.
 - Upgrade costs: **1 / 2 / 2 / 3** coins (8 to max one club). With about 2.25 coins per player per hole, that's more than one upgrade per hole: about 9 in a 6-hole game and a full bag by about hole 18. In the game, upgrades are bought as cards from the pro shop: 3 offers per hole, sometimes one on sale, and $1 rerolls.
 - Physical form: each player has one **player board** (each club's picture and 5 empty squares, Bronze → Diamond) to mark tiers. Upgrading = marking the next square and swapping in that tier's ruler and fan.
 
 ---
+
+### 2.9 Jokers and tickets (built in the game, `clubs-v2` branch)
+
+Special cards bought in the pro shop. **Jokers** are passive and work every shot; a player holds up to **3**. **Tickets** are used once and then discarded; a player holds up to **2**. Either can be sold back for half price.
+
+| Card | Type | Price | Effect |
+|---|---|---|---|
+| Caddie | joker | 5 | Once per hole: flip the red die to its opposite side (1↔6, 2↔5, 3↔4) |
+| Sand Shark | joker | 4 | Bunkers don't drop your result |
+| Rough Rider | joker | 4 | The rough doesn't drop your result |
+| Lumberjack | joker | 5 | Trees never stop your ball and don't drop your result |
+| Iron Man | joker | 6 | All irons play one tier higher |
+| Wedge Wizard | joker | 5 | All wedges play one tier higher |
+| Big Hitter | joker | 5 | Driver and woods play one tier higher |
+| Laser Putter | joker | 5 | RISKY putts need 1 less |
+| Steady Hands | joker | 4 | Never WIDE: wide shots go SLIGHT instead |
+| Lucky Seven | joker | 4 | Roll a 7 on the distance dice: +1 coin |
+| Magpie | joker | 3 | Pick up coin tokens from twice as far away |
+| Piggy Bank | joker | 4 | After each hole: +1 coin for every 4 you hold (max +3) |
+| Mulligan | ticket | 2 | After seeing a roll: reroll all the dice |
+| Get Out of Jail Free | ticket | 3 | Your next water or out of bounds costs no penalty stroke |
+
+- **Timing:** Mulligan and Caddie are offered after the dice land and before the ball moves (MULLIGAN / CADDIE / PLAY IT). Get Out of Jail Free is used automatically on your next penalty.
+- **Effects stack:** jokers only change their owner's rules, and boosts never go past tier 5.
+- **More coins** to afford jokers and rerolls: score coins are now birdie 5, par 3, bogey 2, worse 1 (were 3 / 2 / 1 / 0), plus coin tokens and joker bonuses.
 
 ## 3. The core constraint: everything must be printable
 

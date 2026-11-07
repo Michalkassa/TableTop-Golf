@@ -96,20 +96,45 @@
     background: #1d3a2a repeating-linear-gradient(45deg, #1f3e2d 0 4px, #1b3628 4px 8px); overflow-x: auto; overflow-y: hidden; }
   #deck .who { font: 9px var(--pix); color: var(--gold); min-width: 110px; padding-bottom: 18px; line-height: 2; text-shadow: 2px 2px 0 var(--line); }
   #deck .hand { display: flex; align-items: flex-end; padding-top: 30px; margin: 0 auto; }
-  .gcard { width: 88px; height: 136px; flex: none; margin: 0 -9px; background: #262b44; border: 4px solid var(--tc); box-shadow: 4px 4px 0 var(--line), inset 0 0 0 3px #1a1c2c;
+  /* club cards: the tier is the background (no border, no label) */
+  .gcard { width: 96px; height: 140px; flex: none; margin: 0 -15px; box-shadow: 4px 4px 0 var(--line); --ink: #0f101a;
     display: flex; flex-direction: column; align-items: center; padding: 7px 4px 5px; cursor: pointer; transition: transform .12s steps(3); position: relative; }
+  .gcard.t1 { background: repeating-linear-gradient(0deg, #b4732f 0 4px, #9c5f22 4px 8px); --ink: #fff3e0; }
+  .gcard.t2 { background: repeating-linear-gradient(0deg, #b8cad6 0 4px, #9fb4c2 4px 8px); --ink: #1a1c2c; }
+  .gcard.t3 { background: repeating-linear-gradient(0deg, #ffd885 0 4px, #f2bd52 4px 8px); --ink: #3a2a00; }
+  .gcard.t4 { background: repeating-linear-gradient(0deg, #46c873 0 4px, #2fa45a 4px 8px); --ink: #0b2a16; }
+  .gcard.t5 { background: repeating-linear-gradient(0deg, #8ff6fb 0 4px, #64dcec 4px 8px), #73eff7; --ink: #10234a; }
+  .gcard.t5::after { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 20% 15%, #fff8 0 2px, transparent 3px), radial-gradient(circle at 80% 30%, #fff8 0 2px, transparent 3px), radial-gradient(circle at 30% 70%, #fff6 0 1.5px, transparent 2.5px); pointer-events: none; }
   .gcard:hover:not(.off) { transform: translateY(-16px) rotate(0deg) !important; z-index: 5; }
-  .gcard.sel { transform: translateY(-28px) rotate(0deg) !important; z-index: 6; box-shadow: 4px 4px 0 var(--line), inset 0 0 0 3px #1a1c2c, 0 0 0 4px var(--gold); }
+  .gcard.sel { transform: translateY(-28px) rotate(0deg) !important; z-index: 6; box-shadow: 4px 4px 0 var(--line), 0 0 0 4px var(--gold), 0 0 0 7px var(--line); }
   .gcard.off { filter: grayscale(.85) brightness(.55); cursor: not-allowed; }
-  .gname { font: 7px var(--pix); color: #fff; letter-spacing: 0; white-space: nowrap; }
+  .gname { font: 7px var(--pix); color: var(--ink); letter-spacing: 0; white-space: nowrap; }
   .gicon svg { width: 48px; height: 48px; display: block; margin: 5px 0 2px; image-rendering: pixelated; }
-  .gyd { font: 7px var(--pix); color: var(--ink); margin: 4px 0 3px; }
-  .gstrip { width: 76px; margin-top: 3px; }
+  .gyd { font: 7px var(--pix); color: var(--ink); margin: 3px 0 2px; }
+  .gstrip { width: 88px; margin-top: 3px; }
+  .gstat { color: var(--ink) !important; }
   .gstrip svg { display: block; width: 100%; height: auto; }
-  .gpips { font: 7px var(--pix); color: var(--tc); letter-spacing: 1px; }
+  .gpips { font: 7px var(--pix); color: var(--ink); letter-spacing: 1px; opacity: .85; }
   .gstat { font: 18px/1 var(--txt); color: var(--ink); margin-top: 3px; }
   .gtier { position: absolute; bottom: -14px; font: 7px var(--pix); background: var(--tc); color: var(--line); padding: 3px 5px; border: 2px solid var(--line); }
   .gbadge { position: absolute; top: -14px; right: -10px; font: 8px var(--pix); background: var(--gold); color: var(--line); padding: 4px 5px; border: 2px solid var(--line); }
+  /* jokers (passive, purple) and tickets (one use, teal) */
+  .jcard { width: 112px; height: 160px; flex: none; display: flex; flex-direction: column; align-items: center; padding: 8px 6px 6px; box-shadow: 4px 4px 0 var(--line); position: relative;
+    background: repeating-linear-gradient(0deg, #5d3c9e 0 4px, #4d3088 4px 8px); color: #fff; }
+  .jcard.ticket { background: repeating-linear-gradient(0deg, #23898f 0 4px, #1b7277 4px 8px); }
+  .jcard.sold { background: #333c57; color: var(--muted); align-items: center; }
+  .jcard .jname { font: 7px/1.4 var(--pix); text-align: center; min-height: 20px; }
+  .jcard .jicon svg { width: 48px; height: 48px; display: block; margin: 4px 0; }
+  .jcard .jtext { font: 15px/1 var(--txt); text-align: center; color: #f4f4f4; }
+  .jcard .jtype { position: absolute; bottom: 5px; font: 6px var(--pix); color: #ffcd75; letter-spacing: 1px; }
+  .jcard.mini { width: 62px; height: 92px; padding: 5px 3px; margin: 0; }
+  .jcard.mini .jicon svg { width: 32px; height: 32px; }
+  .jcard.mini .jname { font-size: 5px; line-height: 1.5; min-height: 16px; white-space: normal; word-break: break-word; }
+  .jcard.mini .jtype { font-size: 5px; }
+  .jrail { display: flex; align-items: flex-end; gap: 6px; padding-bottom: 12px; margin-right: 10px; flex: none; }
+  .gboost { position: absolute; top: 4px; right: 5px; font: 10px var(--pix); color: #ffcd75; text-shadow: 1px 1px 0 #0f101a; }
+  .jchoice { margin-top: 10px; }
+  .jbtn { background: #5d3c9e !important; color: #fff !important; }
   /* shop */
   .offers { display: flex; gap: 18px; justify-content: center; padding: 22px 0 10px; flex-wrap: wrap; }
   .offer { display: flex; flex-direction: column; align-items: center; gap: 22px; }

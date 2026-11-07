@@ -42,6 +42,7 @@
   const stored = LS.get('ttg.cfg', null);
   const cfg = stored && stored.version === E.DEFAULT_CONFIG.version ? stored : E.clone(E.DEFAULT_CONFIG);
   E.setLieMode(cfg);
+  window.__baseCfg = cfg;
 
   // Retro palette
   const PAL = {
@@ -65,6 +66,84 @@
   const svg = document.getElementById('board'), gover = document.getElementById('gover'), ganim = document.getElementById('ganim');
   const panel = document.getElementById('panel'), toastEl = document.getElementById('toast');
 
+  // ------------------------------------------------------------ jokers
+  // JOKER = passive, works every shot (3 slots). TICKET = one use, then it's gone (2 slots).
+  const JOKERS = [
+    { id: 'caddie', name: 'CADDIE', type: 'joker', price: 5, col: '#ffcd75', text: 'Once per hole: flip the red die to its opposite side.' },
+    { id: 'sandshark', name: 'SAND SHARK', type: 'joker', price: 4, col: '#f2d58c', text: "Bunkers don't drop your result." },
+    { id: 'roughrider', name: 'ROUGH RIDER', type: 'joker', price: 4, col: '#8ce872', text: "The rough doesn't drop your result." },
+    { id: 'lumberjack', name: 'LUMBERJACK', type: 'joker', price: 5, col: '#ef7d57', text: "Trees never stop your ball and don't drop your result." },
+    { id: 'ironman', name: 'IRON MAN', type: 'joker', price: 6, col: '#c0c8d0', text: 'All irons play one tier higher.' },
+    { id: 'wizard', name: 'WEDGE WIZARD', type: 'joker', price: 5, col: '#b55088', text: 'All wedges play one tier higher.' },
+    { id: 'bighitter', name: 'BIG HITTER', type: 'joker', price: 5, col: '#73b7f2', text: 'Driver and woods play one tier higher.' },
+    { id: 'laser', name: 'LASER PUTTER', type: 'joker', price: 5, col: '#e43b44', text: 'RISKY putts need 1 less.' },
+    { id: 'steady', name: 'STEADY HANDS', type: 'joker', price: 4, col: '#f4f4f4', text: 'Never WIDE: wide shots go SLIGHT instead.' },
+    { id: 'lucky7', name: 'LUCKY SEVEN', type: 'joker', price: 4, col: '#ffcd75', text: 'Roll a 7 on the distance dice: +1 coin.' },
+    { id: 'magpie', name: 'MAGPIE', type: 'joker', price: 3, col: '#94b0c2', text: 'Pick up coin tokens from twice as far away.' },
+    { id: 'piggy', name: 'PIGGY BANK', type: 'joker', price: 4, col: '#ff9aaa', text: 'After each hole: +1 coin for every 4 you hold (max +3).' },
+    { id: 'mulligan', name: 'MULLIGAN', type: 'ticket', price: 2, col: '#73eff7', text: 'After you see a roll: reroll all the dice.' },
+    { id: 'jail', name: 'GET OUT OF JAIL FREE', type: 'ticket', price: 3, col: '#ffcd75', text: 'Your next water or out of bounds costs no penalty stroke.' },
+  ];
+  const JK = Object.fromEntries(JOKERS.map((j) => [j.id, j]));
+  const SLOTS = { joker: 3, ticket: 2 };
+  const JICON = {
+    caddie: ['..x.x...', '..x.x.x.', '.xxxxxx.', '.x....x.', '.xxxxxx.', '.x....x.', '.x....x.', '.xxxxxx.'],
+    sandshark: ['....x...', '...xx...', '..xxx...', '.xxxx...', 'xxxxxxx.', '........', 'x.x.x.x.', '.x.x.x.x'],
+    roughrider: ['........', 'x...x...', 'x.x.x.x.', 'x.x.xxx.', 'xxxxxxx.', 'xxxxxxxx', 'xxxxxxxx', '........'],
+    lumberjack: ['.xxx....', 'xxxxx...', 'xxxx.x..', '.xx...x.', '......x.', '.......x', '.......x', '........'],
+    ironman: ['......xx', '.....xx.', '....xx..', '..xxx...', '.xxxx...', 'xxxx....', 'xxx.....', '........'],
+    wizard: ['....x...', '...xx...', '...xxx..', '..xxxx..', '..x.xxx.', '.xxxxxx.', 'xxxxxxxx', '........'],
+    bighitter: ['....xx..', '...xx...', '..xx....', '.xxxxx..', '....xx..', '...xx...', '..xx....', '.x......'],
+    laser: ['..xxxx..', '.x....x.', 'x..xx..x', 'x.x..x.x', 'x.x..x.x', 'x..xx..x', '.x....x.', '..xxxx..'],
+    steady: ['...x....', '..xxx...', '.x.x.x..', '...x....', '...x....', '...x....', '...x....', '...x....'],
+    lucky7: ['xxxxxx..', '.....x..', '....x...', '...x....', '...x....', '..x.....', '..x.....', '........'],
+    magpie: ['........', '..xx....', '.xxxx..x', 'xxxxxxxx', '..xxxxx.', '...xx...', '...x....', '........'],
+    piggy: ['........', '.xxxxx..', 'xxxxxxx.', 'xx.xxxxx', 'xxxxxxx.', '.xxxxx..', '.x...x..', '........'],
+    mulligan: ['..xxxx..', '.x....x.', 'x......x', 'x....xxx', 'x.....x.', 'x.......', '.x....x.', '..xxxx..'],
+    jail: ['........', '.xxx....', 'x...x...', 'x...xxxx', 'x...x.xx', '.xxx..x.', '........', '........'],
+  };
+  function jIconSvg(id) {
+    const rows = JICON[id] || [], c = (JK[id] || {}).col || '#fff';
+    let s = '<svg viewBox="-1 -1 10 10" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">';
+    rows.forEach((row, y) => { for (let x = 0; x < 8; x++) if (row[x] === 'x') s += `<rect x="${x}" y="${y}" width="1" height="1" fill="${c}"/><rect x="${x + 0.25}" y="${y + 1}" width="0.75" height="0.25" fill="#0008"/>`; });
+    return s + '</svg>';
+  }
+  const hasJ = (p, id) => p.jokers.includes(id);
+  const hasTicket = (p, id) => p.tickets.includes(id);
+  const useTicket = (p, id) => { const i = p.tickets.indexOf(id); if (i >= 0) p.tickets.splice(i, 1); };
+  // Jokers change the rules for their owner only: a per-player copy of the config and boosted tiers.
+  const pcfgCache = new Map();
+  function pcfg(p) {
+    const key = p.jokers.slice().sort().join(',');
+    if (pcfgCache.has(key)) return pcfgCache.get(key);
+    const c = E.clone(cfg);
+    if (hasJ(p, 'roughrider')) c.lieDrop.rough = 0;
+    if (hasJ(p, 'sandshark')) c.lieDrop.bunker = 0;
+    if (hasJ(p, 'lumberjack')) { c.lieDrop.trees = 0; c.rules.treesBlockLine = false; }
+    if (hasJ(p, 'steady')) for (const t in c.fans) c.fans[t] = c.fans[t].map((a) => (Math.abs(a) >= 15 ? Math.sign(a) * 6 : a));
+    if (hasJ(p, 'laser')) c.putting.risky = c.putting.risky.map((t, i) => (i ? t - 1 : t));
+    if (hasJ(p, 'magpie')) c.coinTokens.radius *= 2;
+    pcfgCache.set(key, c);
+    return c;
+  }
+  function ptiers(p) {
+    const t = { ...p.tiers };
+    for (const c of cfg.clubs) {
+      const boost = (c.kind === 'iron' && hasJ(p, 'ironman')) || (c.kind === 'wedge' && hasJ(p, 'wizard')) || ((c.kind === 'driver' || c.kind === 'wood') && hasJ(p, 'bighitter'));
+      if (boost) t[c.id] = Math.min(E.MAX_TIER, t[c.id] + 1);
+    }
+    return t;
+  }
+  const boosted = (p, id) => id !== 'putter' && ptiers(p)[id] > p.tiers[id];
+  function jokerEl(id, opts) {
+    opts = opts || {};
+    const j = JK[id];
+    return h('div', { class: `jcard ${j.type}${opts.mini ? ' mini' : ''}`, title: `${j.name}: ${j.text}` },
+      h('div', { class: 'jname' }, j.name), h('div', { class: 'jicon', html: jIconSvg(id) }),
+      opts.mini ? null : h('div', { class: 'jtext' }, j.text),
+      h('div', { class: 'jtype' }, j.type === 'ticket' ? 'ONE USE' : 'JOKER'));
+  }
+
   let G = null;
   const setup = { n: 2, names: ['PLAYER 1', 'PLAYER 2', 'PLAYER 3', 'PLAYER 4'], bot: [false, true, true, true], holes: 6 };
 
@@ -78,7 +157,7 @@
       players: Array.from({ length: setup.n }, (_, i) => ({
         name: (setup.names[i] || `PLAYER ${i + 1}`).toUpperCase(), bot: setup.bot[i], color: PCOL[i],
         tiers: Object.fromEntries(cfg.clubs.map((c) => [c.id, 1]).concat([['putter', 1]])),
-        coins: 0, scores: [], st: null, trail: [], tokenCoins: 0,
+        coins: 0, scores: [], st: null, trail: [], tokenCoins: 0, jokers: [], tickets: [], caddieUsed: false,
       })),
       ui: { club: null, power: 1, aim: null, cloud: false }, vb: null, highlight: null, lastExplain: null, lastDice: null, coins: [],
     };
@@ -88,7 +167,7 @@
   const P = () => G.players[G.cur];
   const parOf = () => E.parOf(H(), cfg);
   function startHole() {
-    for (const p of G.players) { p.st = E.startState(H()); p.trail = []; p.tokenCoins = 0; }
+    for (const p of G.players) { p.st = E.startState(H()); p.trail = []; p.tokenCoins = 0; p.caddieUsed = false; }
     G.coins = E.placeCoins(H(), cfg, E.mulberry32((Math.random() * 1e9) | 0));
     G.phase = 'turn'; G.lastExplain = null; G.lastDice = null; G.vb = null;
     pickNext();
@@ -101,30 +180,68 @@
     G.cur = open[0].i;
     const p = P();
     if (p.st.onGreen) { G.ui.club = null; G.ui.power = 1; }
-    else { const def = E.decide(H(), cfg, p.st, p.tiers, E.PROFILES[0], ctxFor(p), false); G.ui.club = def.club; G.ui.power = def.power; }
+    else { const def = E.decide(H(), pcfg(p), p.st, ptiers(p), E.PROFILES[0], ctxFor(p), false); G.ui.club = def.club; G.ui.power = def.power; }
     G.ui.aim = null; G.phase = 'turn';
     render();
     if (p.bot) botTurn();
   }
   const ctxCache = new Map();
-  function ctxFor(p) { const k = JSON.stringify(p.tiers); if (!ctxCache.has(k)) ctxCache.set(k, E.botContext(cfg, p.tiers)); return ctxCache.get(k); }
+  function ctxFor(p) { const k = JSON.stringify(ptiers(p)) + p.jokers.join(','); if (!ctxCache.has(k)) ctxCache.set(k, E.botContext(pcfg(p), ptiers(p))); return ctxCache.get(k); }
 
   // ------------------------------------------------------------ shots
+  // Jokers that act once the dice have landed (before the ball flies).
+  function afterRollOptions(p, out, dice) {
+    const o = [];
+    if (hasTicket(p, 'mulligan')) o.push({ id: 'mulligan', label: 'MULLIGAN: reroll all dice' });
+    if (hasJ(p, 'caddie') && !p.caddieUsed && !p.st.onGreen && out.result.angle !== 0) o.push({ id: 'caddie', label: `CADDIE: red die ${dice.dir} → ${7 - dice.dir}` });
+    if (o.length) o.push({ id: 'keep', label: 'PLAY IT' });
+    return o;
+  }
+  function botAfterRoll(p, out, dice, opts, compute) {
+    if (opts.some((o) => o.id === 'caddie')) {
+      const flipped = compute({ ...dice, dir: 7 - dice.dir });
+      if (Math.abs(flipped.result.angle) < Math.abs(out.result.angle) || (out.result.penalty && !flipped.result.penalty)) return 'caddie';
+    }
+    if (opts.some((o) => o.id === 'mulligan') && (out.result.penalty || out.result.blocked || (out.result.putt && !out.result.holed && out.result.ring <= 2))) return 'mulligan';
+    return 'keep';
+  }
+  function askChoice(opts) { return new Promise((resolve) => { G.pendingChoice = { opts, resolve }; renderPanel(); }); }
+
   async function takeShot(choice) {
     if (G.busy || G.phase !== 'turn') return;
     G.busy = true;
-    const p = P(), hole = H(), st = p.st;
-    const dice = { d1: d6(), d2: d6(), dir: d6() };
+    const p = P(), hole = H(), st = p.st, pc = pcfg(p), pt = ptiers(p);
     const dec = st.onGreen ? { putt: choice } : { club: G.ui.club, power: G.ui.power, aim: G.ui.aim || hole.pin };
+    let dice = { d1: d6(), d2: d6(), dir: d6() };
+    const compute = (dd) => E.playShot(hole, pc, st, dec, pt, dd || dice);
     let out;
-    try { out = E.playShot(hole, cfg, st, dec, p.tiers, dice); } catch (e) { G.busy = false; toast(e.message.toUpperCase()); return; }
-    const r = out.result;
-    G.lastRoll = { sum: dice.d1 + dice.d2, dir: dice.dir, choice, onGreen: st.onGreen, ring: st.onGreen ? E.ringOf(hole, st) : 0, jitter: [0.25 + Math.random() * 0.5, 0.25 + Math.random() * 0.5] };
-    G.phase = 'rolling'; G.diceRolling = true; G.lastDice = null; G.lastExplain = null; render();
-    await rollDice(st.onGreen ? [dice.d1, dice.d2] : [dice.d1, dice.d2, dice.dir], !st.onGreen);
-    G.diceRolling = false; // the arrow appears only once the dice have landed
-    G.lastExplain = explain(r); renderPanel();
-    await sleep(500);
+    try { out = compute(); } catch (e) { G.busy = false; toast(e.message.toUpperCase()); return; }
+    const showRoll = async () => {
+      G.lastRoll = { sum: dice.d1 + dice.d2, dir: dice.dir, choice, onGreen: st.onGreen, ring: st.onGreen ? E.ringOf(hole, st) : 0, jitter: [0.25 + Math.random() * 0.5, 0.25 + Math.random() * 0.5] };
+      G.phase = 'rolling'; G.diceRolling = true; G.lastDice = null; G.lastExplain = null; render();
+      await rollDice(st.onGreen ? [dice.d1, dice.d2] : [dice.d1, dice.d2, dice.dir], !st.onGreen);
+      G.diceRolling = false; // the arrow appears only once the dice have landed
+      out = compute();
+      G.lastExplain = explain(out.result); renderPanel();
+    };
+    await showRoll();
+    for (let guard = 0; guard < 6; guard++) {
+      const opts = afterRollOptions(p, out, dice);
+      if (!opts.length) break;
+      const pick = p.bot ? botAfterRoll(p, out, dice, opts, compute) : await askChoice(opts);
+      if (p.bot && pick !== 'keep') { G.botChoice = pick; renderPanel(); await sleep(600); G.botChoice = null; }
+      if (pick === 'mulligan') { useTicket(p, 'mulligan'); toast('MULLIGAN!', 'reroll'); dice = { d1: d6(), d2: d6(), dir: d6() }; await showRoll(); continue; }
+      if (pick === 'caddie') {
+        p.caddieUsed = true; dice = { ...dice, dir: 7 - dice.dir }; out = compute();
+        G.lastRoll.dir = dice.dir; if (G.lastDice) G.lastDice.faces[2] = dice.dir; G.lastExplain = explain(out.result);
+        toast('CADDIE!', 'red die flipped'); renderPanel(); continue;
+      }
+      break;
+    }
+    await sleep(400);
+    const r = out.result, extras = [];
+    if (r.penalty && hasTicket(p, 'jail')) { useTicket(p, 'jail'); out.state.strokes -= r.penalty; extras.push('GET OUT OF JAIL FREE: no penalty'); r.penalty = 0; }
+    if (!r.putt && hasJ(p, 'lucky7') && dice.d1 + dice.d2 === 7) { p.coins += 1; p.tokenCoins += 1; extras.push('LUCKY 7: +1 coin'); }
     if (!r.putt) {
       await setView(fitBox([r.from, r.landing, r.intended, hole.pin]), 450);
       G.highlight = r; drawAll(); await sleep(600);
@@ -135,12 +252,14 @@
     p.st = out.state;
     G.highlight = null;
     const t = resultText(r, out.state);
-    const ci = r.putt || out.state.holed ? -1 : E.coinAt(G.coins, out.state, cfg);
+    if (out.result.landLie === 'water' || out.result.landLie === 'ob') if (extras.some((x) => x.startsWith('GET OUT'))) t[1] = 'no penalty stroke';
+    const ci = r.putt || out.state.holed ? -1 : E.coinAt(G.coins, out.state, pc);
     if (ci >= 0) {
       const c = G.coins[ci]; c.taken = true; p.coins += c.value; p.tokenCoins += c.value;
-      t[1] = (t[1] ? t[1] + ' · ' : '') + `+${c.value} COIN${c.value > 1 ? 'S' : ''}!`;
+      extras.push(`+${c.value} COIN${c.value > 1 ? 'S' : ''}!`);
       await coinPop(c);
     }
+    if (extras.length) t[1] = [t[1], ...extras].filter(Boolean).join(' · ');
     toast(t[0], t[1]);
     drawAll();
     await sleep(r.holed ? 1500 : 1000);
@@ -152,11 +271,11 @@
     await sleep(700);
     if (G.phase !== 'turn' || P() !== p) return;
     if (p.st.onGreen) {
-      const c = E.decidePutt(H(), cfg, p.st, p.tiers, E.PROFILES[1], ctxFor(p));
+      const c = E.decidePutt(H(), pcfg(p), p.st, ptiers(p), E.PROFILES[1], ctxFor(p));
       G.botChoice = c; renderPanel(); await sleep(700); G.botChoice = null;
       return takeShot(c);
     }
-    const d = E.decide(H(), cfg, p.st, p.tiers, E.PROFILES[1], { ...ctxFor(p), coins: G.coins.filter((c) => !c.taken), coinWorth: 0.35 }, false);
+    const d = E.decide(H(), pcfg(p), p.st, ptiers(p), E.PROFILES[1], { ...ctxFor(p), coins: G.coins.filter((c) => !c.taken), coinWorth: 0.35 }, false);
     G.ui.club = d.club; G.ui.power = d.power; G.ui.aim = { x: d.aim.x, y: d.aim.y };
     render(); await sleep(900);
     return takeShot();
@@ -378,7 +497,8 @@
     });
     return s + '</g>';
   }
-  function previewSvg(V, p, txt) {
+  function previewSvg(V, p0, txt) {
+    const cfg = pcfg(p0), p = { ...p0, tiers: ptiers(p0) };
     const hole = H(), st = p.st, club = E.getClub(cfg, G.ui.club), px = V.px;
     if (!club || !E.clubAllowed(club, st.lie)) return '';
     const tier = E.isTierable(club) ? p.tiers[club.id] : 1, aim = G.ui.aim || hole.pin;
@@ -444,6 +564,7 @@
     G.holeResult = G.players.map((p) => {
       const strokes = p.st.holed ? p.st.strokes : cfg.rules.maxStrokesPerHole, diff = strokes - par, coins = coinsFor(diff);
       p.scores[G.hi] = strokes; p.coins += coins;
+      if (hasJ(p, 'piggy')) { const bonus = Math.min(3, Math.floor(p.coins / 4)); p.coins += bonus; p.tokenCoins += bonus; }
       return { p, strokes, diff, coins, tokens: p.tokenCoins || 0 };
     });
     G.phase = 'holeEnd';
@@ -466,11 +587,27 @@
     for (let i = ids.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ids[i], ids[j]] = [ids[j], ids[i]]; }
     G.shop.offers = ids.slice(0, 3).map((id) => ({ id, price: cost(p, id), was: null, sold: false }));
     if (G.shop.offers.length && Math.random() < 0.4) { const o = G.shop.offers[Math.floor(Math.random() * G.shop.offers.length)]; if (o.price > 1) { o.was = o.price; o.price -= 1; } }
+    const pool = JOKERS.filter((j) => j.type === 'ticket' || !hasJ(p, j.id));
+    for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+    G.shop.jokers = pool.slice(0, 2).map((j) => ({ id: j.id, price: j.price, sold: false }));
   }
   function buyOffer(o) { const p = shopper(); if (o.sold || p.coins < o.price) return; p.coins -= o.price; p.tiers[o.id]++; o.sold = true; render(); }
+  function slotFree(p, id) { const t = JK[id].type; return (t === 'joker' ? p.jokers : p.tickets).length < SLOTS[t]; }
+  function buyJoker(o) {
+    const p = shopper(), j = JK[o.id];
+    if (o.sold || p.coins < o.price || !slotFree(p, o.id)) return;
+    p.coins -= o.price; (j.type === 'joker' ? p.jokers : p.tickets).push(o.id); o.sold = true; render();
+  }
+  function sellJoker(p, id) {
+    const j = JK[id], list = j.type === 'joker' ? p.jokers : p.tickets, i = list.indexOf(id);
+    if (i < 0) return; list.splice(i, 1); p.coins += Math.floor(j.price / 2); render();
+  }
   function reroll() { const p = shopper(); if (p.coins < 1) return; p.coins -= 1; makeOffers(); render(); }
   function leaveShop() { G.shop.idx++; if (G.shop.idx >= G.shop.order.length) return nextHole(); makeOffers(); render(); }
   function botShop(p) {
+    // CPU: buy one joker or ticket it can afford while keeping some coins, then spend the rest on upgrades
+    const want = JOKERS.filter((j) => (j.type === 'joker' ? !hasJ(p, j.id) && p.jokers.length < SLOTS.joker : p.tickets.length < SLOTS.ticket) && p.coins >= j.price + 1);
+    if (want.length && Math.random() < 0.6) { const j = want[Math.floor(Math.random() * want.length)]; p.coins -= j.price; (j.type === 'joker' ? p.jokers : p.tickets).push(j.id); }
     const ids = bagIds().filter((id) => id === 'putter' || E.isTierable(E.getClub(cfg, id)));
     for (let guard = 0; guard < 30; guard++) {
       const opts = ids.filter((id) => cost(p, id) != null && cost(p, id) <= p.coins).sort((a, b) => p.tiers[a] - p.tiers[b] || (a === 'putter' ? -1 : 1));
@@ -516,7 +653,8 @@
     return { final: c.x + c.w * jitter, start: live ? MX + Math.random() * BW : null };
   }
   function meterBox(title, svgText, key) { return h('div', { class: 'meter', 'data-k': key }, h('div', { class: 'mlabel' }, title), h('div', { html: svgText })); }
-  function metersFor(p) {
+  function metersFor(p0) {
+    const cfg = pcfg(p0), p = { ...p0, tiers: ptiers(p0) };
     const st = p.st, hole = H(), roll = G.phase !== 'turn' && !G.diceRolling ? G.lastRoll : null, live = false;
     const out = [];
     if (st.onGreen) {
@@ -567,24 +705,27 @@
   }
   const inOn = (t) => (t <= 2 ? 'IN' : t > 12 ? '–' : t === 12 ? '12' : t + '+');
   // A card shows: name, picture, tier, a distance strip (2d6 2–12: short / on target / long) and a direction strip (d6: wide / slight / straight).
-  function stripsEl(id, tier) {
+  function stripsEl(id, tier, cfgX) {
+    const cfg = cfgX || window.__baseCfg;
     if (id === 'putter') return [h('div', { class: 'gstat' }, `RISKY ${inOn(E.puttTarget(cfg, 2, 'risky', tier))}`), h('div', { class: 'gstat' }, `SAFE ${inOn(E.puttTarget(cfg, 2, 'safe', tier))}`)];
-    const c = E.getClub(cfg, id), fan = E.fanFor(cfg, c, tier);
-    const d = SUMS.map((v) => `<rect x="${(v - 2) * 7}" y="0" width="6" height="7" fill="${ZFILL[E.zoneFor(cfg, v, tier, 'fairway').idx]}"/>`).join('');
-    const f = fan.map((a, i) => `<rect x="${i * 13}" y="0" width="12" height="7" fill="${dirCol(a, 15)}"/>`).join('');
+    const c = E.getClub(cfg, id), fan = E.fanFor(cfg, c, tier), VT = `font-family="VT323, monospace"`;
+    // numbers sit inside each coloured box: dark on light boxes, white on dark ones
+    const d = SUMS.map((v) => { const z = E.zoneFor(cfg, v, tier, 'fairway').idx; return `<rect x="${(v - 2) * 8}" y="0" width="7.4" height="10" fill="${ZFILL[z]}"/><text x="${(v - 2) * 8 + 3.7}" y="8.3" text-anchor="middle" font-size="${v >= 10 ? 8 : 9.5}" ${VT} fill="${z === 1 ? '#0f101a' : '#fff'}">${v}</text>`; }).join('');
+    const f = fan.map((a, i) => `<rect x="${i * 14.8}" y="0" width="14" height="10" fill="${dirCol(a, 15)}"/><text x="${i * 14.8 + 7}" y="8.4" text-anchor="middle" font-size="10" ${VT} fill="#0f101a">${i + 1}</text>`).join('');
     return [h('div', { class: 'gyd' }, c.powers ? `${c.full} YD+` : `${c.full} YD`),
-      h('div', { class: 'gstrip', html: `<svg viewBox="-1 -1 78 9" shape-rendering="crispEdges"><rect x="-1" y="-1" width="78" height="9" fill="#0f101a"/>${d}</svg>` }),
-      h('div', { class: 'gstrip', html: `<svg viewBox="-1 -1 79 9" shape-rendering="crispEdges"><rect x="-1" y="-1" width="79" height="9" fill="#0f101a"/>${f}</svg>` })];
+      h('div', { class: 'gstrip', html: `<svg viewBox="-1 -1 89.4 12" shape-rendering="crispEdges"><rect x="-1" y="-1" width="89.4" height="12" fill="#0f101a"/>${d}</svg>` }),
+      h('div', { class: 'gstrip', html: `<svg viewBox="-1 -1 89.4 12" shape-rendering="crispEdges"><rect x="-1" y="-1" width="89.4" height="12" fill="#0f101a"/>${f}</svg>` })];
   }
   function cardEl(id, tier, opts) {
     opts = opts || {};
     const full = id === 'putter' ? 'PUTTER' : E.getClub(cfg, id).name.toUpperCase();
     const name = full.length > 9 ? full.split(' ')[0][0] + '. ' + full.split(' ').slice(-1)[0] : full; // "PITCHING WEDGE" -> "P. WEDGE"
-    return h('div', { class: 'gcard' + (opts.sel ? ' sel' : '') + (opts.off ? ' off' : ''), style: `--tc:${TIERCOL[tier - 1]};${opts.style || ''}`, title: opts.title, onclick: opts.onclick },
+    return h('div', { class: `gcard t${tier}` + (opts.sel ? ' sel' : '') + (opts.off ? ' off' : ''), style: opts.style || '', title: opts.title || `${full} · ${TIERNAME[tier - 1]}`, onclick: opts.onclick },
       opts.badge ? h('div', { class: 'gbadge' }, opts.badge) : null,
       h('div', { class: 'gname' }, name), h('div', { class: 'gicon', html: iconSvg(id) }),
       h('div', { class: 'gpips' }, '■'.repeat(tier) + '□'.repeat(E.MAX_TIER - tier)),
-      stripsEl(id, tier), h('div', { class: 'gtier' }, TIERNAME[tier - 1]));
+      opts.boost ? h('div', { class: 'gboost', title: 'Boosted by a joker' }, '★') : null,
+      stripsEl(id, opts.stripTier || tier, opts.cfgX));
   }
   const bagIds = () => [...cfg.clubs.filter((c) => c.enabled !== false).map((c) => c.id), 'putter'];
   function renderDeck() {
@@ -598,11 +739,15 @@
       const sel = !shopper && (id === 'putter' ? st.onGreen : G.ui.club === id);
       const fan = `transform: rotate(${(i - (n - 1) / 2) * 2.5}deg) translateY(${Math.abs(i - (n - 1) / 2) * 3}px)`;
       return cardEl(id, p.tiers[id], {
+        stripTier: ptiers(p)[id], cfgX: pcfg(p), boost: boosted(p, id) || (id === 'putter' && hasJ(p, 'laser')),
         sel: sel && !['holeEnd', 'shop', 'end'].includes(G.phase), off: !shopper && off && !['holeEnd', 'shop', 'end'].includes(G.phase), style: fan,
         onclick: myTurn && !off && id !== 'putter' ? () => pickClub(id) : null,
       });
     });
-    deck.replaceChildren(h('div', { class: 'who' }, h('span', { class: 'dot', style: `background:${p.color};margin-right:8px;vertical-align:-3px` }), `${p.name}'S BAG`, h('br'), h('span', { class: 'coin' }, `$${p.coins}`)), h('div', { class: 'hand' }, cards));
+    const rail = [...p.jokers, ...p.tickets].map((id) => jokerEl(id, { mini: true }));
+    deck.replaceChildren(h('div', { class: 'who' }, h('span', { class: 'dot', style: `background:${p.color};margin-right:8px;vertical-align:-3px` }), `${p.name}'S BAG`, h('br'), h('span', { class: 'coin' }, `$${p.coins}`),
+      h('br'), h('span', { class: 'meta', style: 'font-size:8px' }, `JOKERS ${p.jokers.length}/${SLOTS.joker} · TICKETS ${p.tickets.length}/${SLOTS.ticket}`)),
+      rail.length ? h('div', { class: 'jrail' }, rail) : null, h('div', { class: 'hand' }, cards));
   }
 
   // ------------------------------------------------------------ panel
@@ -715,7 +860,9 @@
       h('div', { id: 'tray' },
         h('div', { id: 'dicebox' }, G.phase !== 'turn' && G.lastDice ? staticDice() : G.phase === 'turn' ? h('div', { class: 'hint' }, p.bot ? 'Thinking…' : st.onGreen ? 'Pick SAFE or RISKY' : 'Pick a club (card or ruler mark) · tap the course to aim · ROLL') : null),
         metersFor(p)),
-      G.lastExplain && G.phase !== 'turn' ? h('div', { class: 'explain' }, G.lastExplain.map((t) => h('div', { class: 'chip', html: t }))) : null));
+      G.lastExplain && G.phase !== 'turn' ? h('div', { class: 'explain' }, G.lastExplain.map((t) => h('div', { class: 'chip', html: t }))) : null,
+      G.botChoice && G.phase === 'rolling' ? h('div', { class: 'chip', style: 'margin-top:6px;color:var(--gold)' }, `${p.name} uses ${G.botChoice.toUpperCase()}`) : null,
+      G.pendingChoice ? h('div', { class: 'row jchoice' }, G.pendingChoice.opts.map((o) => h('button', { class: o.id === 'keep' ? 'big' : 'big jbtn', onclick: () => { const pc = G.pendingChoice; G.pendingChoice = null; pc.resolve(o.id); } }, o.label))) : null));
     if (st.onGreen) {
       out.push(h('div', { class: 'card' }, h('h2', null, `PUTTER T${p.tiers.putter} · RING ${E.ringOf(hole, st)}`), putterCardFor(p),
         G.botChoice ? h('div', { class: 'chip', style: 'margin-top:8px' }, `${p.name} goes ${G.botChoice.toUpperCase()}`) : null,
@@ -735,24 +882,33 @@
   }
   function renderHoleEnd() {
     return h('div', { class: 'card' }, h('h2', null, `HOLE ${G.hi + 1} COMPLETE · PAR ${parOf()}`),
-      h('table', null, h('tr', null, h('th', null, 'PLAYER'), h('th', null, 'SHOTS'), h('th', null, ''), h('th', null, 'SCORE $'), h('th', null, 'TOKENS $')),
+      h('table', null, h('tr', null, h('th', null, 'PLAYER'), h('th', null, 'SHOTS'), h('th', null, ''), h('th', null, 'SCORE $'), h('th', null, 'BONUS $')),
         G.holeResult.map((r) => h('tr', null, h('td', null, r.p.name), h('td', null, r.strokes), h('td', null, scoreName(r.diff)), h('td', { class: 'coin' }, `+${r.coins}`), h('td', { class: 'coin' }, r.tokens ? `+${r.tokens}` : '–')))),
-      h('div', { class: 'hint', style: 'margin-top:8px' }, `Birdie ${cfg.progression.coins.birdieOrBetter} · par ${cfg.progression.coins.par} · bogey ${cfg.progression.coins.bogey} · plus coins picked up on the course.`),
+      h('div', { class: 'hint', style: 'margin-top:8px' }, `Birdie ${cfg.progression.coins.birdieOrBetter} · par ${cfg.progression.coins.par} · bogey ${cfg.progression.coins.bogey} · worse ${cfg.progression.coins.worse} · bonus = coin tokens and jokers.`),
       h('div', { class: 'row', style: 'margin-top:12px' }, h('button', { class: 'big', onclick: goShop }, 'PRO SHOP ›')));
   }
   function renderShop() {
     const p = shopper();
+    const owned = [...p.jokers, ...p.tickets];
     return h('div', null,
       h('div', { class: 'card' },
         h('div', { class: 'player' }, h('span', { class: 'dot', style: `background:${p.color}` }), h('div', { class: 'pname' }, `${p.name}'S SHOP`), h('div', { class: 'pname coin', style: 'margin-left:auto' }, `$${p.coins}`)),
+        h('h2', { style: 'margin-top:12px' }, 'CLUB UPGRADES'),
         h('div', { class: 'offers' }, G.shop.offers.length ? G.shop.offers.map((o) => h('div', { class: 'offer' },
-          o.sold ? h('div', { class: 'gcard off', style: `--tc:#333c57` }, h('div', { class: 'sold', style: 'margin-top:50px' }, 'SOLD')) : cardEl(o.id, p.tiers[o.id] + 1, { badge: o.was ? 'SALE' : `T${p.tiers[o.id] + 1}` }),
+          o.sold ? h('div', { class: 'gcard off t1', style: 'filter:grayscale(1) brightness(.5)' }, h('div', { class: 'sold', style: 'margin-top:50px' }, 'SOLD')) : cardEl(o.id, p.tiers[o.id] + 1, { badge: o.was ? 'SALE' : `T${p.tiers[o.id] + 1}` }),
           o.sold ? h('div', { class: 'price' }, ' ') : h('div', { class: 'price' }, o.was ? h('s', null, `$${o.was}`) : null, `$${o.price}`),
           o.sold ? null : h('button', { class: 'big', disabled: p.coins < o.price, onclick: () => buyOffer(o) }, 'BUY'))) : h('div', { class: 'hint' }, 'Your bag is maxed out!')),
-        h('div', { class: 'row', style: 'justify-content:center;margin-top:6px' },
+        h('h2', null, 'JOKERS & TICKETS'),
+        h('div', { class: 'offers' }, G.shop.jokers.map((o) => h('div', { class: 'offer' },
+          o.sold ? h('div', { class: 'jcard sold' }, h('div', { class: 'sold', style: 'margin-top:60px' }, 'SOLD')) : jokerEl(o.id),
+          o.sold ? h('div', { class: 'price' }, ' ') : h('div', { class: 'price' }, `$${o.price}`),
+          o.sold ? null : h('button', { class: 'big', disabled: p.coins < o.price || !slotFree(p, o.id), title: slotFree(p, o.id) ? '' : 'No free slot: sell one first', onclick: () => buyJoker(o) }, slotFree(p, o.id) ? 'BUY' : 'FULL')))),
+        owned.length ? [h('h2', null, `YOUR JOKERS (${p.jokers.length}/${SLOTS.joker}) · TICKETS (${p.tickets.length}/${SLOTS.ticket})`),
+          h('div', { class: 'row', style: 'justify-content:center;gap:14px' }, owned.map((id) => h('div', { class: 'offer', style: 'gap:8px' }, jokerEl(id, { mini: true }), h('button', { onclick: () => sellJoker(p, id) }, `SELL $${Math.floor(JK[id].price / 2)}`))))] : null,
+        h('div', { class: 'row', style: 'justify-content:center;margin-top:10px' },
           h('button', { disabled: p.coins < 1, onclick: reroll }, 'REROLL $1'),
           h('button', { class: 'big', onclick: leaveShop }, G.shop.idx + 1 < G.shop.order.length ? 'NEXT PLAYER ›' : G.hi + 1 >= G.holes.length ? 'RESULTS ›' : `TEE OFF HOLE ${G.hi + 2} ›`)),
-        h('div', { class: 'hint', style: 'margin-top:8px;text-align:center' }, 'Buying a card upgrades that club in your bag below. CPU players shop on their own.')));
+        h('div', { class: 'hint', style: 'margin-top:8px;text-align:center' }, 'Jokers work every shot (3 slots). Tickets are used once (2 slots). Sell for half price.')));
   }
   function renderEnd() {
     const pars = G.prepped.map((hp) => E.parOf(hp, cfg)), totPar = pars.reduce((a, b) => a + b, 0);
@@ -776,7 +932,7 @@
         h('div', null, '1. Pick a club, tap a power mark on its ruler, tap the course to aim.'),
         h('div', null, '2. ROLL: white dice pick the distance tick (short / middle / long), the red die picks the fan line.'),
         h('div', null, '3. On the green, tap SAFE or RISKY on your putter card.'),
-        h('div', null, '4. Stop on a gold coin to grab it. Spend coins in the pro shop between holes.'),
+        h('div', null, '4. Stop on a gold coin to grab it. Spend coins in the pro shop: club upgrades, JOKERS (always on) and one-use TICKETS.'),
         h('div', null, '5. Furthest from the cup plays next. Lowest total wins.')));
   }
 

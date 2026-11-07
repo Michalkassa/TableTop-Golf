@@ -5,7 +5,7 @@
 
   // ---------------------------------------------------------------- config
   const DEFAULT_CONFIG = {
-    version: '2.0',
+    version: '2.1',
     board: { w: 340, h: 460 },
     rulerStepYd: 5,
     // CLUB SYSTEM v2. Each club hits one fixed distance; only the Driver has power levels.
@@ -52,7 +52,7 @@
     },
     penalties: { ob: 1, water: 1 },
     par: { par3Below: 250, par4Below: 470 },
-    progression: { coins: { birdieOrBetter: 3, par: 2, bogey: 1, worse: 0 }, tierCosts: [1, 2, 2, 3] },
+    progression: { coins: { birdieOrBetter: 5, par: 3, bogey: 2, worse: 1 }, tierCosts: [1, 2, 2, 3] },
     // Coin tokens on the course: stop your ball on one (within radius) to take it.
     coinTokens: { perHole: 3, radius: 15, riskyValue: 2, value: 1 }, // 15 yd = 3 cm disc
     rules: {
