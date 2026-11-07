@@ -84,6 +84,8 @@
     { id: 'mulligan', name: 'MULLIGAN', type: 'ticket', price: 2, col: '#73eff7', text: 'After you see a roll: reroll all the dice.' },
     { id: 'jail', name: 'GET OUT OF JAIL FREE', type: 'ticket', price: 3, col: '#ffcd75', text: 'Your next water or out of bounds costs no penalty stroke.' },
   ];
+  const EMOJI = { caddie: '🎒', sandshark: '🦈', roughrider: '🤠', lumberjack: '🪓', ironman: '🦾', wizard: '🧙', bighitter: '💪', laser: '🎯', steady: '🤚', lucky7: '🍀', magpie: '🐦', piggy: '🐷', mulligan: '🔄', jail: '🔑' };
+  for (const j of JOKERS) { j.emoji = EMOJI[j.id] || '⭐'; j.title = j.name.toLowerCase().replace(/(^|\s)\S/g, (m) => m.toUpperCase()); }
   const JK = Object.fromEntries(JOKERS.map((j) => [j.id, j]));
   const SLOTS = { joker: 3, ticket: 2 };
   const JICON = {
@@ -139,9 +141,9 @@
     opts = opts || {};
     const j = JK[id];
     return h('div', { class: `jcard ${j.type}${opts.mini ? ' mini' : ''}`, title: `${j.name}: ${j.text}` },
-      h('div', { class: 'jname' }, j.name), h('div', { class: 'jicon', html: jIconSvg(id) }),
+      h('div', { class: 'jname' }, j.title), h('div', { class: 'jicon' }, j.emoji),
       opts.mini ? null : h('div', { class: 'jtext' }, j.text),
-      h('div', { class: 'jtype' }, j.type === 'ticket' ? 'ONE USE' : 'JOKER'));
+      h('div', { class: 'jtype' }, j.type === 'ticket' ? 'one use' : 'joker'));
   }
 
   let G = null;
@@ -696,34 +698,61 @@
     putter: ['.........gg.....', '.........gg.....', '.........s......', '.........s......', '.........s......', '.........s......', '.........s......', '.........s......', '.........s......', '.........s......', '...hhhhhhh......', '...hlllllh...ww.', '...ddddddd...ww.', '................', 'GGGGGGGGGG..oo..', '................'],
   };
   const ICOL = { driver: ['#3b5dc9', '#73b7f2', '#1f2f75'], wood: ['#a46422', '#e0a060', '#5e3412'], iron: ['#94b0c2', '#f4f4f4', '#566c86'], punch: ['#b55088', '#e8a0c8', '#6e2a52'], wedge: ['#94b0c2', '#f4f4f4', '#566c86'], putter: ['#94b0c2', '#f4f4f4', '#566c86'] };
+  // Cute 2D club illustrations: a smiling club head and a happy golf ball.
   function iconSvg(id) {
-    const k = kindOf(id), rows = ICONS[k] || ICONS.iron, [hc, lc, dc] = ICOL[k] || ICOL.iron;
-    const col = { g: '#1a1c2c', s: '#c0c8d0', h: hc, l: lc, d: dc, w: '#f4f4f4', y: '#f2d58c', G: '#38b764', o: '#0f101a' };
-    let s = '<svg viewBox="0 0 16 16" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">';
-    rows.forEach((row, y) => { for (let x = 0; x < 16; x++) { const c = col[row[x]]; if (c) s += `<rect x="${x}" y="${y}" width="1" height="1" fill="${c}"/>`; } });
+    const k = kindOf(id), O = '#4a3a5c';
+    const face = (cx, cy, sc) => `<circle cx="${cx - 4 * sc}" cy="${cy}" r="${1.6 * sc}" fill="${O}"/><circle cx="${cx + 4 * sc}" cy="${cy}" r="${1.6 * sc}" fill="${O}"/>` +
+      `<circle cx="${cx - 4.6 * sc}" cy="${cy - 0.6 * sc}" r="${0.5 * sc}" fill="#fff"/><circle cx="${cx + 3.4 * sc}" cy="${cy - 0.6 * sc}" r="${0.5 * sc}" fill="#fff"/>` +
+      `<ellipse cx="${cx - 7 * sc}" cy="${cy + 2.6 * sc}" rx="${1.8 * sc}" ry="${1.1 * sc}" fill="#ff8fb1" opacity=".8"/><ellipse cx="${cx + 7 * sc}" cy="${cy + 2.6 * sc}" rx="${1.8 * sc}" ry="${1.1 * sc}" fill="#ff8fb1" opacity=".8"/>` +
+      `<path d="M ${cx - 2 * sc} ${cy + 2.4 * sc} Q ${cx} ${cy + 4.4 * sc} ${cx + 2 * sc} ${cy + 2.4 * sc}" stroke="${O}" stroke-width="${1.1 * sc}" fill="none" stroke-linecap="round"/>`;
+    const ball = (cx, cy) => `<circle cx="${cx}" cy="${cy}" r="6" fill="#fff" stroke="${O}" stroke-width="1.6"/><circle cx="${cx - 2}" cy="${cy - 0.5}" r=".8" fill="${O}"/><circle cx="${cx + 2}" cy="${cy - 0.5}" r=".8" fill="${O}"/><path d="M ${cx - 1.4} ${cy + 1.6} Q ${cx} ${cy + 2.8} ${cx + 1.4} ${cy + 1.6}" stroke="${O}" stroke-width=".8" fill="none" stroke-linecap="round"/>`;
+    const shaft = (x1, y1) => `<line x1="${x1}" y1="${y1}" x2="54" y2="6" stroke="#b9c4d4" stroke-width="3.2" stroke-linecap="round"/><line x1="44" y1="15" x2="55" y2="5" stroke="#5b4a7a" stroke-width="5" stroke-linecap="round"/>`;
+    let s = '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">';
+    s += '<ellipse cx="32" cy="58" rx="24" ry="4" fill="#000" opacity=".12"/>';
+    if (k === 'driver' || k === 'wood') {
+      const big = k === 'driver', fill = big ? '#5b8def' : '#c9874f', hi = big ? '#a9c6ff' : '#f0c08f';
+      s += shaft(big ? 30 : 28, big ? 34 : 36);
+      s += `<ellipse cx="${big ? 24 : 24}" cy="${big ? 42 : 44}" rx="${big ? 18 : 14}" ry="${big ? 12 : 10}" fill="${fill}" stroke="${O}" stroke-width="2"/>`;
+      s += `<ellipse cx="${big ? 18 : 20}" cy="${big ? 36 : 39}" rx="${big ? 7 : 5}" ry="3" fill="${hi}" opacity=".9"/>` + face(24, big ? 43 : 45, big ? 1 : 0.85);
+      s += ball(52, 52);
+    } else if (k === 'iron' || k === 'wedge') {
+      const w = k === 'wedge';
+      s += shaft(32, 30);
+      if (w) s += '<ellipse cx="26" cy="56" rx="22" ry="5" fill="#ffe3a3" stroke="#e8c070" stroke-width="1.2"/>';
+      s += `<path d="M 10 ${w ? 34 : 36} Q 12 ${w ? 28 : 31} 22 ${w ? 28 : 31} L 34 ${w ? 27 : 30} Q 38 ${w ? 28 : 31} 37 ${w ? 36 : 38} L 35 50 Q 33 54 27 54 L 14 54 Q 9 53 9 47 Z" fill="#dfe6ee" stroke="${O}" stroke-width="2" stroke-linejoin="round"/>`;
+      s += `<path d="M 13 ${w ? 33 : 35} Q 16 ${w ? 31 : 33.5} 22 ${w ? 31 : 33.5}" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round"/>` + face(23, 44, 0.9);
+      s += ball(52, 52);
+    } else if (k === 'putter') {
+      s += '<ellipse cx="32" cy="55" rx="28" ry="6" fill="#8fe0a6"/>';
+      s += `<line x1="34" y1="38" x2="34" y2="4" stroke="#b9c4d4" stroke-width="3.2" stroke-linecap="round"/><line x1="34" y1="4" x2="34" y2="14" stroke="#5b4a7a" stroke-width="5" stroke-linecap="round"/>`;
+      s += `<rect x="12" y="36" width="34" height="14" rx="7" fill="#dfe6ee" stroke="${O}" stroke-width="2"/>` + face(29, 42, 0.8);
+      s += ball(54, 47);
+    }
     return s + '</svg>';
   }
+
   const inOn = (t) => (t <= 2 ? 'IN' : t > 12 ? '–' : t === 12 ? '12' : t + '+');
   // A card shows: name, picture, tier, a distance strip (2d6 2–12: short / on target / long) and a direction strip (d6: wide / slight / straight).
   function stripsEl(id, tier, cfgX) {
     const cfg = cfgX || window.__baseCfg;
     if (id === 'putter') return [h('div', { class: 'gstat' }, `RISKY ${inOn(E.puttTarget(cfg, 2, 'risky', tier))}`), h('div', { class: 'gstat' }, `SAFE ${inOn(E.puttTarget(cfg, 2, 'safe', tier))}`)];
-    const c = E.getClub(cfg, id), fan = E.fanFor(cfg, c, tier), VT = `font-family="VT323, monospace"`;
-    // numbers sit inside each coloured box: dark on light boxes, white on dark ones
-    const d = SUMS.map((v) => { const z = E.zoneFor(cfg, v, tier, 'fairway').idx; return `<rect x="${(v - 2) * 8}" y="0" width="7.4" height="10" fill="${ZFILL[z]}"/><text x="${(v - 2) * 8 + 3.7}" y="8.3" text-anchor="middle" font-size="${v >= 10 ? 8 : 9.5}" ${VT} fill="${z === 1 ? '#0f101a' : '#fff'}">${v}</text>`; }).join('');
-    const f = fan.map((a, i) => `<rect x="${i * 14.8}" y="0" width="14" height="10" fill="${dirCol(a, 15)}"/><text x="${i * 14.8 + 7}" y="8.4" text-anchor="middle" font-size="10" ${VT} fill="#0f101a">${i + 1}</text>`).join('');
-    return [h('div', { class: 'gyd' }, c.powers ? `${c.full} YD+` : `${c.full} YD`),
-      h('div', { class: 'gstrip', html: `<svg viewBox="-1 -1 89.4 12" shape-rendering="crispEdges"><rect x="-1" y="-1" width="89.4" height="12" fill="#0f101a"/>${d}</svg>` }),
-      h('div', { class: 'gstrip', html: `<svg viewBox="-1 -1 89.4 12" shape-rendering="crispEdges"><rect x="-1" y="-1" width="89.4" height="12" fill="#0f101a"/>${f}</svg>` })];
+    const c = E.getClub(cfg, id), fan = E.fanFor(cfg, c, tier), FF = `font-family="Fredoka, sans-serif" font-weight="700"`;
+    const ZC = ['#6ea8ff', '#ffffff', '#ff7b7b'], DC = (a) => (a === 0 ? '#5fd38d' : Math.abs(a) < 15 ? '#ffd166' : '#ff9f5a');
+    // rounded number pills: dark numbers on light pills, white on coloured ones
+    const d = SUMS.map((v) => { const z = E.zoneFor(cfg, v, tier, 'fairway').idx; return `<rect x="${(v - 2) * 8 + 0.3}" y="0.5" width="7.4" height="10" rx="2.6" fill="${ZC[z]}" stroke="#4a3a5c" stroke-width=".6"/><text x="${(v - 2) * 8 + 4}" y="8.2" text-anchor="middle" font-size="${v >= 10 ? 5.6 : 6.6}" ${FF} fill="${z === 1 ? '#4a3a5c' : '#fff'}">${v}</text>`; }).join('');
+    const f = fan.map((a, i) => `<rect x="${i * 14.8 + 0.3}" y="0.5" width="14" height="10" rx="3.5" fill="${DC(a)}" stroke="#4a3a5c" stroke-width=".6"/><text x="${i * 14.8 + 7.3}" y="8.3" text-anchor="middle" font-size="7" ${FF} fill="#4a3a5c">${i + 1}</text>`).join('');
+    return [h('div', { class: 'gyd' }, c.powers ? `${c.full} yd +power` : `${c.full} yd`),
+      h('div', { class: 'gstrip', html: `<svg viewBox="0 0 89 11.2">${d}</svg>` }),
+      h('div', { class: 'gstrip', html: `<svg viewBox="0 0 89 11.2">${f}</svg>` })];
   }
   function cardEl(id, tier, opts) {
     opts = opts || {};
-    const full = id === 'putter' ? 'PUTTER' : E.getClub(cfg, id).name.toUpperCase();
-    const name = full.length > 9 ? full.split(' ')[0][0] + '. ' + full.split(' ').slice(-1)[0] : full; // "PITCHING WEDGE" -> "P. WEDGE"
+    const full = id === 'putter' ? 'Putter' : E.getClub(cfg, id).name;
+    const name = full.length > 10 ? full.split(' ')[0] : full; // "Pitching Wedge" -> "Pitching"
     return h('div', { class: `gcard t${tier}` + (opts.sel ? ' sel' : '') + (opts.off ? ' off' : ''), style: opts.style || '', title: opts.title || `${full} · ${TIERNAME[tier - 1]}`, onclick: opts.onclick },
       opts.badge ? h('div', { class: 'gbadge' }, opts.badge) : null,
       h('div', { class: 'gname' }, name), h('div', { class: 'gicon', html: iconSvg(id) }),
-      h('div', { class: 'gpips' }, '■'.repeat(tier) + '□'.repeat(E.MAX_TIER - tier)),
+      h('div', { class: 'gpips' }, '★'.repeat(tier) + '☆'.repeat(E.MAX_TIER - tier)),
       opts.boost ? h('div', { class: 'gboost', title: 'Boosted by a joker' }, '★') : null,
       stripsEl(id, opts.stripTier || tier, opts.cfgX));
   }

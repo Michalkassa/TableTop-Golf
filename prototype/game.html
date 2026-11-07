@@ -6,7 +6,7 @@
 <title>Tabletop Golf</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
   /* Retro palette (dark arcade look in both themes) */
   :root {
@@ -96,43 +96,48 @@
     background: #1d3a2a repeating-linear-gradient(45deg, #1f3e2d 0 4px, #1b3628 4px 8px); overflow-x: auto; overflow-y: hidden; }
   #deck .who { font: 9px var(--pix); color: var(--gold); min-width: 110px; padding-bottom: 18px; line-height: 2; text-shadow: 2px 2px 0 var(--line); }
   #deck .hand { display: flex; align-items: flex-end; padding-top: 30px; margin: 0 auto; }
-  /* club cards: the tier is the background (no border, no label) */
-  .gcard { width: 96px; height: 140px; flex: none; margin: 0 -15px; box-shadow: 4px 4px 0 var(--line); --ink: #0f101a;
-    display: flex; flex-direction: column; align-items: center; padding: 7px 4px 5px; cursor: pointer; transition: transform .12s steps(3); position: relative; }
-  .gcard.t1 { background: repeating-linear-gradient(0deg, #b4732f 0 4px, #9c5f22 4px 8px); --ink: #fff3e0; }
-  .gcard.t2 { background: repeating-linear-gradient(0deg, #b8cad6 0 4px, #9fb4c2 4px 8px); --ink: #1a1c2c; }
-  .gcard.t3 { background: repeating-linear-gradient(0deg, #ffd885 0 4px, #f2bd52 4px 8px); --ink: #3a2a00; }
-  .gcard.t4 { background: repeating-linear-gradient(0deg, #46c873 0 4px, #2fa45a 4px 8px); --ink: #0b2a16; }
-  .gcard.t5 { background: repeating-linear-gradient(0deg, #8ff6fb 0 4px, #64dcec 4px 8px), #73eff7; --ink: #10234a; }
-  .gcard.t5::after { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 20% 15%, #fff8 0 2px, transparent 3px), radial-gradient(circle at 80% 30%, #fff8 0 2px, transparent 3px), radial-gradient(circle at 30% 70%, #fff6 0 1.5px, transparent 2.5px); pointer-events: none; }
-  .gcard:hover:not(.off) { transform: translateY(-16px) rotate(0deg) !important; z-index: 5; }
-  .gcard.sel { transform: translateY(-28px) rotate(0deg) !important; z-index: 6; box-shadow: 4px 4px 0 var(--line), 0 0 0 4px var(--gold), 0 0 0 7px var(--line); }
+  /* club cards: cute 2D style, the tier is the background colour */
+  .gcard { width: 98px; height: 142px; flex: none; margin: 0 -15px; border-radius: 14px; --ink: #3b2f4a; font-family: "Fredoka", system-ui, sans-serif;
+    box-shadow: 0 5px 0 rgba(30, 20, 50, .35), 0 9px 14px rgba(0, 0, 0, .25), inset 0 2px 0 rgba(255, 255, 255, .7);
+    display: flex; flex-direction: column; align-items: center; padding: 8px 5px 6px; cursor: pointer; transition: transform .15s ease; position: relative; overflow: hidden; }
+  .gcard::before { content: ''; position: absolute; left: -20%; top: -35%; width: 140%; height: 70%; border-radius: 50%; background: rgba(255, 255, 255, .28); pointer-events: none; }
+  .gcard.t1 { background: radial-gradient(circle at 30% 20%, #ffe2c4, #f4a96a 70%, #e08a4f); }
+  .gcard.t2 { background: radial-gradient(circle at 30% 20%, #ffffff, #d6dfea 65%, #aebccd); }
+  .gcard.t3 { background: radial-gradient(circle at 30% 20%, #fff7c2, #ffd45c 65%, #f2b33a); }
+  .gcard.t4 { background: radial-gradient(circle at 30% 20%, #d9fbe3, #7fdca2 65%, #43b874); }
+  .gcard.t5 { background: radial-gradient(circle at 30% 20%, #f3fdff, #a9e9ff 55%, #c3b2ff); }
+  .gcard.t5::after { content: '✦ ✧'; position: absolute; top: 26px; right: 8px; color: #fff; font-size: 11px; text-shadow: 0 0 4px #b49cff; pointer-events: none; }
+  .gcard:hover:not(.off) { transform: translateY(-16px) rotate(0deg) scale(1.04) !important; z-index: 5; }
+  .gcard.sel { transform: translateY(-28px) rotate(0deg) scale(1.06) !important; z-index: 6; box-shadow: 0 0 0 4px #fff, 0 0 0 7px #ff8fb1, 0 10px 18px rgba(0,0,0,.35); }
   .gcard.off { filter: grayscale(.85) brightness(.55); cursor: not-allowed; }
-  .gname { font: 7px var(--pix); color: var(--ink); letter-spacing: 0; white-space: nowrap; }
-  .gicon svg { width: 48px; height: 48px; display: block; margin: 5px 0 2px; image-rendering: pixelated; }
-  .gyd { font: 7px var(--pix); color: var(--ink); margin: 3px 0 2px; }
-  .gstrip { width: 88px; margin-top: 3px; }
-  .gstat { color: var(--ink) !important; }
+  .gname { font: 700 12px/1 "Fredoka", sans-serif; color: var(--ink); white-space: nowrap; position: relative; }
+  .gicon svg { width: 54px; height: 54px; display: block; margin: 3px 0 0; position: relative; }
+  .gyd { font: 600 11px/1 "Fredoka", sans-serif; color: var(--ink); margin: 3px 0 1px; position: relative; }
+  .gstrip { width: 88px; margin-top: 3px; position: relative; }
+  .gstat { color: var(--ink) !important; font: 600 13px/1.2 "Fredoka", sans-serif !important; position: relative; margin-top: 4px; }
   .gstrip svg { display: block; width: 100%; height: auto; }
-  .gpips { font: 7px var(--pix); color: var(--ink); letter-spacing: 1px; opacity: .85; }
+  .gpips { font: 10px/1 "Fredoka", sans-serif; color: #ff8fb1; letter-spacing: 0; text-shadow: 0 1px 0 #fff; position: relative; }
   .gstat { font: 18px/1 var(--txt); color: var(--ink); margin-top: 3px; }
   .gtier { position: absolute; bottom: -14px; font: 7px var(--pix); background: var(--tc); color: var(--line); padding: 3px 5px; border: 2px solid var(--line); }
-  .gbadge { position: absolute; top: -14px; right: -10px; font: 8px var(--pix); background: var(--gold); color: var(--line); padding: 4px 5px; border: 2px solid var(--line); }
+  .gbadge { position: absolute; top: auto; bottom: 6px; right: 6px; font: 700 10px "Fredoka", sans-serif; background: #ff5c8a; color: #fff; padding: 2px 7px; border-radius: 10px; z-index: 2; box-shadow: 0 2px 0 rgba(0,0,0,.2); }
   /* jokers (passive, purple) and tickets (one use, teal) */
-  .jcard { width: 112px; height: 160px; flex: none; display: flex; flex-direction: column; align-items: center; padding: 8px 6px 6px; box-shadow: 4px 4px 0 var(--line); position: relative;
-    background: repeating-linear-gradient(0deg, #5d3c9e 0 4px, #4d3088 4px 8px); color: #fff; }
-  .jcard.ticket { background: repeating-linear-gradient(0deg, #23898f 0 4px, #1b7277 4px 8px); }
-  .jcard.sold { background: #333c57; color: var(--muted); align-items: center; }
-  .jcard .jname { font: 7px/1.4 var(--pix); text-align: center; min-height: 20px; }
-  .jcard .jicon svg { width: 48px; height: 48px; display: block; margin: 4px 0; }
-  .jcard .jtext { font: 15px/1 var(--txt); text-align: center; color: #f4f4f4; }
-  .jcard .jtype { position: absolute; bottom: 5px; font: 6px var(--pix); color: #ffcd75; letter-spacing: 1px; }
-  .jcard.mini { width: 62px; height: 92px; padding: 5px 3px; margin: 0; }
-  .jcard.mini .jicon svg { width: 32px; height: 32px; }
-  .jcard.mini .jname { font-size: 5px; line-height: 1.5; min-height: 16px; white-space: normal; word-break: break-word; }
-  .jcard.mini .jtype { font-size: 5px; }
+  .jcard { width: 116px; height: 164px; flex: none; display: flex; flex-direction: column; align-items: center; padding: 10px 7px 8px; position: relative; overflow: hidden;
+    border-radius: 16px; font-family: "Fredoka", sans-serif; color: #3b2f4a; background: radial-gradient(circle at 30% 20%, #f1e9ff, #c3a8ff 60%, #9b7cf2);
+    box-shadow: 0 5px 0 rgba(30, 20, 50, .35), 0 9px 14px rgba(0, 0, 0, .25), inset 0 2px 0 rgba(255, 255, 255, .7); }
+  .jcard::before { content: ''; position: absolute; left: -20%; top: -35%; width: 140%; height: 70%; border-radius: 50%; background: rgba(255, 255, 255, .3); pointer-events: none; }
+  .jcard.ticket { background: radial-gradient(circle at 30% 20%, #e6fff9, #8ee8d4 60%, #45c6aa); }
+  .jcard.sold { background: #e8e4f0; color: #9a92ab; }
+  .jcard .jname { font: 700 12px/1.1 "Fredoka", sans-serif; text-align: center; min-height: 26px; position: relative; display: flex; align-items: center; }
+  .jcard .jicon { font-size: 42px; line-height: 1; margin: 2px 0 4px; position: relative; filter: drop-shadow(0 3px 0 rgba(0,0,0,.15)); }
+  .jcard .jtext { font: 500 12.5px/1.15 "Fredoka", sans-serif; text-align: center; position: relative; }
+  .jcard .jtype { position: absolute; bottom: 7px; font: 700 9px "Fredoka", sans-serif; color: #fff; background: #7a5cd6; padding: 2px 8px; border-radius: 9px; }
+  .jcard.ticket .jtype { background: #1f9e85; }
+  .jcard.mini { width: 66px; height: 96px; padding: 6px 4px; margin: 0; border-radius: 12px; }
+  .jcard.mini .jicon { font-size: 28px; margin: 0 0 2px; }
+  .jcard.mini .jname { font-size: 9px; min-height: 22px; }
+  .jcard.mini .jtype { font-size: 7px; bottom: 5px; padding: 1px 5px; }
   .jrail { display: flex; align-items: flex-end; gap: 6px; padding-bottom: 12px; margin-right: 10px; flex: none; }
-  .gboost { position: absolute; top: 4px; right: 5px; font: 10px var(--pix); color: #ffcd75; text-shadow: 1px 1px 0 #0f101a; }
+  .gboost { position: absolute; top: 5px; right: 7px; font: 13px "Fredoka", sans-serif; color: #ff5c8a; text-shadow: 0 1px 0 #fff; }
   .jchoice { margin-top: 10px; }
   .jbtn { background: #5d3c9e !important; color: #fff !important; }
   /* shop */
